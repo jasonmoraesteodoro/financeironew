@@ -118,19 +118,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
 
-      // Chama a função RPC do Supabase para validar a senha atual e atualizar
-      const { data, error } = await supabase.rpc('change_user_password', {
-        current_password: currentPassword,
-        new_password: newPassword
+      // Primeiro, reautentica o usuário para validar a senha atual
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email!,
+        password: currentPassword,
       });
 
-      if (error) {
-        console.error('Error changing password:', error);
+      if (signInError) {
+        console.error('Error validating current password:', signInError);
         return false;
       }
 
-      // A função RPC deve retornar true se a senha foi alterada com sucesso
-      return data === true;
+      // Se a reautenticação foi bem-sucedida, atualiza a senha
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (updateError) {
+        console.error('Error updating password:', updateError);
+        return false;
+      }
+
+      return true;
     } catch (error) {
       console.error('Unexpected error changing password:', error);
       return false;
