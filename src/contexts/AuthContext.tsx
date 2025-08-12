@@ -6,11 +6,14 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  isPasswordResetFlow: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error?: string; needsConfirmation?: boolean }>;
   signOut: () => Promise<void>;
   updateProfile: (userData: { name?: string }) => Promise<{ error?: string }>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
+  sendPasswordResetEmail: (email: string) => Promise<{ error?: string }>;
+  updateUserPassword: (newPassword: string) => Promise<{ error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,6 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPasswordResetFlow, setIsPasswordResetFlow] = useState(false);
 
   useEffect(() => {
     // Get initial session
@@ -36,13 +40,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(false);
     });
 
+    // Check if we're in a password reset flow on initial load
+    const checkPasswordResetFlow = () => {
+      const hash = window.location.hash;
+      if (hash.includes('type=recovery')) {
+        setIsPasswordResetFlow(true);
+        // Clear the hash to prevent re-triggering on page reload
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    };
+
+    checkPasswordResetFlow();
+
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+
+      // Check for password reset flow
+      if (event === 'SIGNED_IN' && window.location.hash.includes('type=recovery')) {
+        setIsPasswordResetFlow(true);
+        // Clear the hash to prevent re-triggering
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -56,7 +79,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) {
-        return { error: error.message };
+        // Traduzir mensagens de erro comuns para português
+        let errorMessage = error.message;
+        if (error.message.includes('Invalid login credentials')) {
+          errorMessage = 'Email ou senha incorretos. Verifique suas credenciais e tente novamente.';
+        } else if (error.message.includes('Email not confirmed')) {
+          errorMessage = 'Email não confirmado. Verifique sua caixa de entrada e confirme seu email.';
+        } else if (error.message.includes('Too many requests')) {
+          errorMessage = 'Muitas tentativas de login. Aguarde alguns minutos antes de tentar novamente.';
+        }
+        return { error: errorMessage };
       }
 
       return {};
@@ -78,7 +110,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) {
-        return { error: error.message };
+        // Traduzir mensagens de erro comuns para português
+        let errorMessage = error.message;
+        if (error.message.includes('User already registered')) {
+          errorMessage = 'Este email já está cadastrado. Tente fazer login ou use outro email.';
+        } else if (error.message.includes('Password should be at least')) {
+          errorMessage = 'A senha deve ter pelo menos 6 caracteres.';
+        } else if (error.message.includes('Invalid email')) {
+          errorMessage = 'Email inválido. Verifique o formato do email.';
+        }
+        return { error: errorMessage };
       }
 
       // Se o usuário não foi logado automaticamente, significa que precisa confirmar o e-mail
@@ -145,16 +186,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
   };
+
+  const sendPasswordResetEmail = async (email: string) => {
+    try {
+      // Use the current origin to ensure it works in both development and production
+      const redirectTo = window.location.origin || 'http://localhost:5174';
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo,
+      });
+
+      if (error) {
+        let errorMessage = error.message;
+        if (error.message.includes('User not found')) {
+          errorMessage = 'Email não encontrado. Verifique se o email está correto.';
+        } else if (error.message.includes('Email rate limit exceeded')) {
+          errorMessage = 'Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.';
+        }
+        return { error: errorMessage };
+      }
+
+      return {};
+    } catch (error) {
+      return { error: 'Erro inesperado ao enviar email de redefinição' };
+    }
+  };
+
+  const updateUserPassword = async (newPassword: string) => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (error) {
+        let errorMessage = error.message;
+        if (error.message.includes('Password should be at least')) {
+          errorMessage = 'A senha deve ter pelo menos 6 caracteres.';
+        }
+        return { error: errorMessage };
+      }
+
+      // Reset the password reset flow state
+      setIsPasswordResetFlow(false);
+      
+      return {};
+    } catch (error) {
+      return { error: 'Erro inesperado ao atualizar senha' };
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
       session,
       loading,
+      isPasswordResetFlow,
       signIn,
       signUp,
       signOut,
       updateProfile,
       changePassword,
+      sendPasswordResetEmail,
+      updateUserPassword,
     }}>
       {children}
     </AuthContext.Provider>
