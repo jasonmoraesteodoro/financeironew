@@ -116,13 +116,11 @@ const ResetPasswordForm: React.FC = () => {
                 placeholder="Digite sua nova senha"
                 minLength={6}
                 required
-                disabled={!session}
               />
               <button
                 type="button"
                 onClick={() => togglePasswordVisibility('new')}
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                disabled={!session}
               >
                 {showPasswords.new ? (
                   <EyeOff className="w-5 h-5" />
@@ -148,13 +146,11 @@ const ResetPasswordForm: React.FC = () => {
                 placeholder="Confirme sua nova senha"
                 minLength={6}
                 required
-                disabled={!session}
               />
               <button
                 type="button"
                 onClick={() => togglePasswordVisibility('confirm')}
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                disabled={!session}
               >
                 {showPasswords.confirm ? (
                   <EyeOff className="w-5 h-5" />
@@ -178,7 +174,7 @@ const ResetPasswordForm: React.FC = () => {
 
           <button
             type="submit"
-            disabled={isLoading || !session}
+            disabled={isLoading}
             className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
             {isLoading ? 'Alterando Senha...' : 'Alterar Senha'}
