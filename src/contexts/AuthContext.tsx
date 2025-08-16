@@ -6,7 +6,6 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  isPasswordResetFlow: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error?: string; needsConfirmation?: boolean }>;
   signOut: () => Promise<void>;
@@ -30,7 +29,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isPasswordResetFlow, setIsPasswordResetFlow] = useState(false);
 
   useEffect(() => {
     // Get initial session
@@ -40,18 +38,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(false);
     });
 
-    // Check if we're in a password reset flow on initial load
-    const checkPasswordResetFlow = () => {
-      const hash = window.location.hash;
-      if (hash.includes('type=recovery')) {
-        setIsPasswordResetFlow(true);
-        // Clear the hash to prevent re-triggering on page reload
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-    };
-
-    checkPasswordResetFlow();
-
     // Listen for auth changes
     const {
       data: { subscription },
@@ -59,13 +45,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
-
-      // Check for password reset flow
-      if (event === 'SIGNED_IN' && window.location.hash.includes('type=recovery')) {
-        setIsPasswordResetFlow(true);
-        // Clear the hash to prevent re-triggering
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
     });
 
     return () => subscription.unsubscribe();
@@ -189,8 +168,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const sendPasswordResetEmail = async (email: string) => {
     try {
-      // Use the current origin to ensure it works in both development and production
-      const redirectTo = window.location.origin || 'http://localhost:5174';
+      // Redirect to specific recovery page
+      const redirectTo = `${window.location.origin}/reset-password`;
       
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo,
@@ -212,8 +191,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const updateUserPassword = async (newPassword: string) => {
+  const updateUserPassword = async (newPassword: string, accessToken?: string, refreshToken?: string) => {
     try {
+      // If tokens are provided, set the session first
+      if (accessToken && refreshToken) {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        
+        if (sessionError) {
+          return { error: 'Token de redefinição inválido ou expirado' };
+        }
+      }
+
       const { error } = await supabase.auth.updateUser({
         password: newPassword,
       });
@@ -226,9 +217,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error: errorMessage };
       }
 
-      // Reset the password reset flow state
-      setIsPasswordResetFlow(false);
-      
       return {};
     } catch (error) {
       return { error: 'Erro inesperado ao atualizar senha' };
@@ -240,7 +228,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       user,
       session,
       loading,
-      isPasswordResetFlow,
       signIn,
       signUp,
       signOut,

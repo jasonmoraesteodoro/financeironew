@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FinanceProvider } from './contexts/FinanceContext';
 import LoginForm from './components/Auth/LoginForm';
-import ResetPasswordForm from './components/Auth/ResetPasswordForm';
+import PasswordResetPage from './components/Auth/PasswordResetPage';
 import Sidebar from './components/Layout/Sidebar';
 import Header from './components/Layout/Header';
 import Dashboard from './components/Dashboard/Dashboard';
@@ -12,7 +12,7 @@ import Reports from './components/Reports/Reports';
 import Settings from './components/Settings/Settings';
 
 const AppContent: React.FC = () => {
-  const { user, loading, isPasswordResetFlow } = useAuth();
+  const { user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showMobileMenu, setShowMobileMenu] = useState(false);
 
@@ -29,12 +29,12 @@ const AppContent: React.FC = () => {
     );
   }
 
+  // Check if this is the password reset page
+  if (window.location.pathname === '/reset-password') {
+    return <PasswordResetPage />;
+  }
+
   if (!user) {
-    // If we're in password reset flow, show the reset form
-    if (isPasswordResetFlow) {
-      return <ResetPasswordForm />;
-    }
-    
     return <LoginForm />;
   }
 

@@ -73,7 +73,7 @@ const Reports: React.FC = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
@@ -94,22 +94,32 @@ const Reports: React.FC = () => {
           </div>
         </div>
 
+        <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-blue-100 text-sm">Total de Investimentos</p>
+              <p className="text-2xl font-bold">{formatCurrency(report.totalInvestments)}</p>
+            </div>
+            <BarChart3 className="w-8 h-8 text-blue-200" />
+          </div>
+        </div>
+
         <div className={`bg-gradient-to-r ${
           report.balance >= 0 
             ? 'from-blue-500 to-blue-600' 
-            : 'from-red-500 to-red-600'
+            : 'from-orange-500 to-orange-600'
         } rounded-xl p-6 text-white`}>
           <div className="flex items-center justify-between">
             <div>
               <p className={`${
-                report.balance >= 0 ? 'text-blue-100' : 'text-red-100'
+                report.balance >= 0 ? 'text-blue-100' : 'text-orange-100'
               } text-sm`}>
                 Saldo do Período
               </p>
               <p className="text-2xl font-bold">{formatCurrency(report.balance)}</p>
             </div>
             <BarChart3 className={`w-8 h-8 ${
-              report.balance >= 0 ? 'text-blue-200' : 'text-red-200'
+              report.balance >= 0 ? 'text-blue-200' : 'text-orange-200'
             }`} />
           </div>
         </div>
@@ -123,6 +133,139 @@ const Reports: React.FC = () => {
         {/* Investment Statement */}
         <InvestmentStatement monthlyReport={report} bankAccounts={bankAccounts} />
       </div>
+
+      {/* Monthly Summary Table */}
+      {selectedYear !== 'all' && availableYears.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Resumo Mensal - {selectedYear}</h3>
+              <p className="text-sm text-gray-600">
+                Visão consolidada de receitas, despesas e investimentos por mês
+              </p>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">TIPO</th>
+                  {['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'].map((month, i) => (
+                    <th key={i} className="text-center py-3 px-2 font-semibold text-gray-700 text-sm">
+                      {month}
+                    </th>
+                  ))}
+                  <th className="text-right py-3 px-4 font-semibold text-gray-700">TOTAL ANUAL</th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* Receitas Row */}
+                <tr className="border-b border-gray-100 hover:bg-green-50">
+                  <td className="py-3 px-4 font-medium text-green-700">Receitas</td>
+                  {Array.from({ length: 12 }, (_, i) => {
+                    const monthReport = getReport(selectedYear, i + 1);
+                    return (
+                      <td key={i} className="py-3 px-2 text-center text-sm">
+                        {monthReport.totalIncome > 0 ? (
+                          <span className="text-green-600 font-medium">
+                            {formatCurrency(monthReport.totalIncome)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                  <td className="py-3 px-4 text-right font-bold text-green-600">
+                    {formatCurrency(Array.from({ length: 12 }, (_, i) => getReport(selectedYear, i + 1).totalIncome).reduce((sum, val) => sum + val, 0))}
+                  </td>
+                </tr>
+
+                {/* Despesas Row */}
+                <tr className="border-b border-gray-100 hover:bg-red-50">
+                  <td className="py-3 px-4 font-medium text-red-700">Despesas</td>
+                  {Array.from({ length: 12 }, (_, i) => {
+                    const monthReport = getReport(selectedYear, i + 1);
+                    return (
+                      <td key={i} className="py-3 px-2 text-center text-sm">
+                        {monthReport.totalExpenses > 0 ? (
+                          <span className="text-red-600 font-medium">
+                            {formatCurrency(monthReport.totalExpenses)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                  <td className="py-3 px-4 text-right font-bold text-red-600">
+                    {formatCurrency(Array.from({ length: 12 }, (_, i) => getReport(selectedYear, i + 1).totalExpenses).reduce((sum, val) => sum + val, 0))}
+                  </td>
+                </tr>
+
+                {/* Saldo Row */}
+                <tr className="border-b border-gray-100 hover:bg-gray-50">
+                  <td className="py-3 px-4 font-medium text-gray-700">Saldo</td>
+                  {Array.from({ length: 12 }, (_, i) => {
+                    const monthReport = getReport(selectedYear, i + 1);
+                    const monthBalance = monthReport.totalIncome - monthReport.totalExpenses;
+                    return (
+                      <td key={i} className="py-3 px-2 text-center text-sm">
+                        {monthBalance !== 0 ? (
+                          <span className={`font-medium ${
+                            monthBalance >= 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {formatCurrency(monthBalance)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                  <td className={`py-3 px-4 text-right font-bold ${
+                    (() => {
+                      const yearlyBalance = Array.from({ length: 12 }, (_, i) => {
+                        const monthReport = getReport(selectedYear, i + 1);
+                        return monthReport.totalIncome - monthReport.totalExpenses;
+                      }).reduce((sum, val) => sum + val, 0);
+                      return yearlyBalance >= 0 ? 'text-green-600' : 'text-red-600';
+                    })()
+                  }`}>
+                    {formatCurrency(Array.from({ length: 12 }, (_, i) => {
+                      const monthReport = getReport(selectedYear, i + 1);
+                      return monthReport.totalIncome - monthReport.totalExpenses;
+                    }).reduce((sum, val) => sum + val, 0))}
+                  </td>
+                </tr>
+
+                {/* Investimentos Row */}
+                <tr className="border-t-2 border-gray-300 bg-blue-50 font-bold">
+                  <td className="py-3 px-4 text-blue-700">Investimentos</td>
+                  {Array.from({ length: 12 }, (_, i) => {
+                    const monthReport = getReport(selectedYear, i + 1);
+                    return (
+                      <td key={i} className="py-3 px-2 text-center text-sm">
+                        {monthReport.totalInvestments > 0 ? (
+                          <span className="text-blue-600 font-bold">
+                            {formatCurrency(monthReport.totalInvestments)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                  <td className="py-3 px-4 text-right font-bold text-lg text-blue-600">
+                    {formatCurrency(Array.from({ length: 12 }, (_, i) => getReport(selectedYear, i + 1).totalInvestments).reduce((sum, val) => sum + val, 0))}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
