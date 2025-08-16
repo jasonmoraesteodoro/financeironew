@@ -30,7 +30,7 @@ const AppContent: React.FC = () => {
   }
 
   // Check if this is the password reset page
-  if (window.location.pathname === '/reset-password') {
+  if (window.location.pathname === '/reset-password' || window.location.hash.includes('#/reset-password')) {
     return <PasswordResetPage />;
   }
 

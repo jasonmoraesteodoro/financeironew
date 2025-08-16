@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import ResetPasswordForm from './ResetPasswordForm';
-import LoginForm from './LoginForm';
 
 const PasswordResetPage: React.FC = () => {
   const { user } = useAuth();
@@ -10,6 +9,9 @@ const PasswordResetPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('URL Hash:', window.location.hash);
+    console.log('URL Search:', window.location.search);
+    
     // Extract tokens from URL hash
     const extractTokensFromHash = () => {
       const hash = window.location.hash;
