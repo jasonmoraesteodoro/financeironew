@@ -9,25 +9,34 @@ const PasswordResetPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log('URL Hash:', window.location.hash);
-    console.log('URL Search:', window.location.search);
+    console.log('PasswordResetPage - URL Hash:', window.location.hash);
+    console.log('PasswordResetPage - URL Search:', window.location.search);
+    console.log('PasswordResetPage - Full URL:', window.location.href);
     
     // Extract tokens from URL hash
     const extractTokensFromHash = () => {
       const hash = window.location.hash;
+      console.log('Checking hash for tokens:', hash);
       
       if (hash.includes('type=recovery')) {
-        const hashParams = new URLSearchParams(hash.substring(1));
+        // Remove the # and any additional path like #reset-password
+        const hashContent = hash.substring(1);
+        const hashParams = new URLSearchParams(hashContent.includes('&') ? hashContent : hashContent.replace('#reset-password', ''));
+        console.log('Hash params:', hashParams.toString());
+        
         const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token');
         const type = hashParams.get('type');
+        
+        console.log('Extracted tokens:', { accessToken: !!accessToken, refreshToken: !!refreshToken, type });
         
         if (accessToken && refreshToken && type === 'recovery') {
           setTokens({ accessToken, refreshToken });
           setIsValidToken(true);
           
           // Clean the URL hash for security
-          window.history.replaceState({}, document.title, window.location.pathname);
+          window.history.replaceState({}, document.title, window.location.origin + '/#reset-password');
+          console.log('Tokens found and set, URL cleaned');
         }
       }
       
@@ -37,21 +46,28 @@ const PasswordResetPage: React.FC = () => {
     // Also check URL search params (query parameters)
     const extractTokensFromQuery = () => {
       const urlParams = new URLSearchParams(window.location.search);
+      console.log('Checking query params for tokens:', urlParams.toString());
+      
       const accessToken = urlParams.get('access_token');
       const refreshToken = urlParams.get('refresh_token');
       const type = urlParams.get('type');
+      
+      console.log('Query extracted tokens:', { accessToken: !!accessToken, refreshToken: !!refreshToken, type });
       
       if (accessToken && refreshToken && type === 'recovery') {
         setTokens({ accessToken, refreshToken });
         setIsValidToken(true);
         
         // Clean the URL query params for security
-        window.history.replaceState({}, document.title, window.location.pathname);
+        window.history.replaceState({}, document.title, window.location.origin + '/#reset-password');
+        console.log('Query tokens found and set, URL cleaned');
       }
     };
 
     extractTokensFromHash();
     extractTokensFromQuery();
+    
+    console.log('Final state:', { isValidToken, tokens });
   }, []);
 
   if (loading) {

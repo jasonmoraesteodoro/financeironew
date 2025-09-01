@@ -9,7 +9,7 @@ const ExpenseAnalytics: React.FC = () => {
   const { transactions, categories, subcategories, deleteTransaction, updateTransaction } = useFinance();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedFilterYear, setSelectedFilterYear] = useState(new Date().getFullYear().toString());
-  const [selectedFilterMonth, setSelectedFilterMonth] = useState((new Date().getMonth() + 1).toString());
+  const [selectedFilterMonth, setSelectedFilterMonth] = useState('all');
   const [selectedFilterCategory, setSelectedFilterCategory] = useState('');
   const [selectedPaymentStatus, setSelectedPaymentStatus] = useState('all');
   const [showTransactionForm, setShowTransactionForm] = useState(false);

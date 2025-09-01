@@ -9,7 +9,7 @@ const IncomeAnalytics: React.FC = () => {
   const { transactions, categories, subcategories, deleteTransaction } = useFinance();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedFilterYear, setSelectedFilterYear] = useState(new Date().getFullYear().toString());
-  const [selectedFilterMonth, setSelectedFilterMonth] = useState((new Date().getMonth() + 1).toString());
+  const [selectedFilterMonth, setSelectedFilterMonth] = useState('all');
   const [selectedFilterCategory, setSelectedFilterCategory] = useState('');
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);

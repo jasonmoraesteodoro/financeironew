@@ -29,8 +29,8 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // Check if this is the password reset page
-  if (window.location.pathname === '/reset-password' || window.location.hash.includes('#/reset-password')) {
+  // Check if this is the password reset page (using hash routing for SPA compatibility)
+  if (window.location.hash.includes('type=recovery') || window.location.hash.includes('#reset-password') || window.location.search.includes('type=recovery')) {
     return <PasswordResetPage />;
   }
 
