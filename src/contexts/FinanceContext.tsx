@@ -62,58 +62,52 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       setLoading(true);
 
-      // Load categories
-      const { data: categoriesData, error: categoriesError } = await supabase
-        .from('categories')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('name');
+      // Load all data in parallel for faster loading
+      const [categoriesResult, subcategoriesResult, transactionsResult, bankAccountsResult] = await Promise.all([
+        supabase
+          .from('categories')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('name'),
+        supabase
+          .from('subcategories')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('name'),
+        supabase
+          .from('transactions')
+          .select('id, type, amount, category_id, subcategory_id, bank_account_id, date, paid, observation, user_id')
+          .eq('user_id', user.id)
+          .order('date', { ascending: false }),
+        supabase
+          .from('bank_accounts')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('bank_name')
+      ]);
 
-      if (categoriesError) throw categoriesError;
-
-      // Load subcategories
-      const { data: subcategoriesData, error: subcategoriesError } = await supabase
-        .from('subcategories')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('name');
-
-      if (subcategoriesError) throw subcategoriesError;
-
-      // Load transactions
-      const { data: transactionsData, error: transactionsError } = await supabase
-        .from('transactions')
-        .select('id, type, amount, category_id, subcategory_id, bank_account_id, date, paid, observation, user_id')
-        .eq('user_id', user.id)
-        .order('date', { ascending: false });
-
-      if (transactionsError) throw transactionsError;
-
-      // Load bank accounts
-      const { data: bankAccountsData, error: bankAccountsError } = await supabase
-        .from('bank_accounts')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('bank_name');
-
-      if (bankAccountsError) throw bankAccountsError;
+      // Check for errors
+      if (categoriesResult.error) throw categoriesResult.error;
+      if (subcategoriesResult.error) throw subcategoriesResult.error;
+      if (transactionsResult.error) throw transactionsResult.error;
+      if (bankAccountsResult.error) throw bankAccountsResult.error;
 
       // Transform data to match local types
-      setCategories(categoriesData.map(cat => ({
+      const transformedCategories = categoriesResult.data.map(cat => ({
         id: cat.id,
         name: cat.name,
         type: cat.type,
         color: cat.color,
-      })));
+      }));
 
-      setSubcategories(subcategoriesData.map(sub => ({
+      const transformedSubcategories = subcategoriesResult.data.map(sub => ({
         id: sub.id,
         name: sub.name,
         parentId: sub.parent_id,
         type: sub.type,
-      })));
+      }));
 
-      setTransactions(transactionsData.map(trans => ({
+      const transformedTransactions = transactionsResult.data.map(trans => ({
         id: trans.id,
         type: trans.type,
         amount: trans.amount,
@@ -123,16 +117,22 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         date: trans.date,
         paid: trans.paid,
         observation: trans.observation,
-      })));
+      }));
 
-      setBankAccounts(bankAccountsData.map(account => ({
+      const transformedBankAccounts = bankAccountsResult.data.map(account => ({
         id: account.id,
         bankName: account.bank_name,
         accountNumber: account.account_number,
         type: account.type,
         userId: account.user_id,
         createdAt: account.created_at,
-      })));
+      }));
+
+      // Update all state at once to minimize re-renders
+      setCategories(transformedCategories);
+      setSubcategories(transformedSubcategories);
+      setTransactions(transformedTransactions);
+      setBankAccounts(transformedBankAccounts);
 
     } catch (error) {
       console.error('Error loading data:', error);
@@ -410,14 +410,14 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     if (yearFilter !== 'all') {
       filteredTransactions = filteredTransactions.filter(t => {
-        const transactionYear = new Date(t.date).getFullYear();
+        const transactionYear = parseInt(t.date.substring(0, 4));
         return transactionYear === Number(yearFilter);
       });
     }
     
     if (monthFilter !== 'all') {
       filteredTransactions = filteredTransactions.filter(t => {
-        const transactionMonth = new Date(t.date).getMonth() + 1;
+        const transactionMonth = parseInt(t.date.substring(5, 7));
         return transactionMonth === Number(monthFilter);
       });
     }

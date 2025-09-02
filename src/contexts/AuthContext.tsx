@@ -1,6 +1,13 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { User, Session } from '@supabase/supabase-js';
+
+// Interface para o código de verificação
+interface VerificationCodeResponse {
+  error?: string;
+  success?: boolean;
+  code?: string;
+}
 
 interface AuthContextType {
   user: User | null;
@@ -11,8 +18,9 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   updateProfile: (userData: { name?: string }) => Promise<{ error?: string }>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
-  sendPasswordResetEmail: (email: string) => Promise<{ error?: string }>;
-  updateUserPassword: (newPassword: string) => Promise<{ error?: string }>;
+  sendPasswordResetEmail: (email: string) => Promise<{ error?: string; success?: boolean }>;
+  updateUserPassword: (newPassword: string, accessToken?: string, refreshToken?: string) => Promise<{ error?: string; success?: boolean }>;
+  verifyPasswordResetCode: (email: string, code: string) => Promise<{ error?: string; success?: boolean }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -38,16 +46,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(false);
     });
 
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session);
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -113,7 +120,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      // Sempre limpar o estado local primeiro
+      setSession(null);
+      setUser(null);
+      
+      // Tentar fazer logout no servidor (pode falhar se a sessão já expirou)
+      await supabase.auth.signOut();
+    } catch (error) {
+      // Ignorar erros de logout no servidor - o usuário já foi deslogado localmente
+      console.log('Logout completed locally');
+    }
   };
 
   const updateProfile = async (userData: { name?: string }) => {
@@ -168,7 +185,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const sendPasswordResetEmail = async (email: string) => {
     try {
-      // Redirect to specific recovery page
       const redirectTo = `${window.location.origin}/reset-password`;
       
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -185,10 +201,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error: errorMessage };
       }
 
-      return {};
+      return { success: true };
     } catch (error) {
+      console.error('Error sending password reset email:', error);
       return { error: 'Erro inesperado ao enviar email de redefinição' };
     }
+  };
+
+  // Função mantida para compatibilidade, mas não será mais usada
+  const verifyPasswordResetCode = async () => {
+    return { error: 'Método não suportado' };
   };
 
   const updateUserPassword = async (newPassword: string, accessToken?: string, refreshToken?: string) => {
@@ -217,8 +239,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error: errorMessage };
       }
 
-      return {};
+      return { success: true };
     } catch (error) {
+      console.error('Error updating password:', error);
       return { error: 'Erro inesperado ao atualizar senha' };
     }
   };
@@ -235,6 +258,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       changePassword,
       sendPasswordResetEmail,
       updateUserPassword,
+      verifyPasswordResetCode,
     }}>
       {children}
     </AuthContext.Provider>

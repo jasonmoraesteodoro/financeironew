@@ -1,12 +1,18 @@
 import React from 'react';
 import { TrendingUp, TrendingDown, Clock } from 'lucide-react';
 import { Transaction, Category } from '../../types';
-import { formatCurrency, formatDate } from '../../utils/formatters';
+import { formatCurrency } from '../../utils/formatters';
 
 interface RecentTransactionsProps {
   transactions: Transaction[];
   categories: Category[];
 }
+
+// Local formatDate function to avoid timezone issues
+const formatDate = (dateStr: string): string => {
+  const [year, month, day] = dateStr.split('-');
+  return new Date(parseInt(year), parseInt(month) - 1, parseInt(day)).toLocaleDateString('pt-BR');
+};
 
 const RecentTransactions: React.FC<RecentTransactionsProps> = ({ transactions, categories }) => {
   const getCategoryName = (categoryId: string) => {

@@ -7,7 +7,9 @@ export const formatCurrency = (amount: number): string => {
 };
 
 export const formatDate = (dateStr: string): string => {
-  return new Date(dateStr).toLocaleDateString('pt-BR');
+  // Parse the date string directly to avoid timezone issues
+  const [year, month, day] = dateStr.split('-');
+  return new Date(parseInt(year), parseInt(month) - 1, parseInt(day)).toLocaleDateString('pt-BR');
 };
 
 export const generateMonths = (year: number) => {
@@ -24,7 +26,7 @@ export const generateMonths = (year: number) => {
 };
 
 export const getAvailableYears = (transactions: any[]): number[] => {
-  return [...new Set(transactions.map(t => new Date(t.date).getFullYear()))].sort((a, b) => b - a);
+  return [...new Set(transactions.map(t => parseInt(t.date.substring(0, 4))))].sort((a, b) => b - a);
 };
 
 export const groupTransactionsByMonth = (transactions: any[]) => {
@@ -41,13 +43,18 @@ export const groupTransactionsByMonth = (transactions: any[]) => {
   // Sort months in descending order (most recent first)
   const sortedMonths = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
   
-  return sortedMonths.map(monthKey => ({
-    monthKey,
-    monthLabel: new Date(monthKey + '-15').toLocaleDateString('pt-BR', { 
-      month: 'long', 
-      year: 'numeric' 
-    }).replace(/^\w/, c => c.toUpperCase()),
-    transactions: grouped[monthKey].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
-    total: grouped[monthKey].reduce((sum, t) => sum + t.amount, 0)
-  }));
+  return sortedMonths.map(monthKey => {
+    // Parse year and month directly from the key to avoid timezone issues
+    const [year, month] = monthKey.split('-');
+    const monthDate = new Date(parseInt(year), parseInt(month) - 1, 15); // Use day 15 to avoid edge cases
+    
+    return {
+      monthLabel: monthDate.toLocaleDateString('pt-BR', { 
+        month: 'long', 
+        year: 'numeric' 
+      }),
+      transactions: grouped[monthKey].sort((a, b) => b.date.localeCompare(a.date)),
+      total: grouped[monthKey].reduce((sum, t) => sum + t.amount, 0)
+    };
+  });
 };

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, DollarSign, UserPlus, Mail, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, DollarSign, UserPlus } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const LoginForm: React.FC = () => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -13,10 +14,8 @@ const LoginForm: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [resetEmail, setResetEmail] = useState('');
-  
-  const { signIn, signUp, sendPasswordResetEmail } = useAuth();
+  const navigate = useNavigate();
+  const { signIn, signUp } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,108 +49,13 @@ const LoginForm: React.FC = () => {
     }
   };
 
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError('');
-    setSuccessMessage('');
-
-    try {
-      const { error } = await sendPasswordResetEmail(resetEmail);
-      if (error) {
-        setError(error);
-      } else {
-        setSuccessMessage('Email de redefinição enviado! Verifique sua caixa de entrada e spam.');
-        setResetEmail('');
-        // Return to login form after 3 seconds
-        setTimeout(() => {
-          setShowForgotPassword(false);
-          setSuccessMessage('');
-        }, 3000);
-      }
-    } catch (error) {
-      setError('Erro inesperado. Tente novamente.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleBackToLogin = () => {
-    setShowForgotPassword(false);
-    setError('');
-    setSuccessMessage('');
-    setResetEmail('');
+  const handleForgotPassword = () => {
+    navigate('/forgot-password');
   };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
-
-  // Forgot Password Form
-  if (showForgotPassword) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
-          {/* Logo */}
-          <div className="text-center mb-8">
-            <div className="bg-blue-600 p-4 rounded-2xl mx-auto w-16 h-16 flex items-center justify-center mb-4">
-              <Mail className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="text-3xl font-bold text-gray-900">Esqueci minha senha</h1>
-            <p className="text-gray-600 mt-2">Digite seu email para receber o link de redefinição</p>
-          </div>
-
-          <form onSubmit={handleForgotPassword} className="space-y-6">
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                <p className="text-sm text-red-800">{error}</p>
-              </div>
-            )}
-
-            {successMessage && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <p className="text-sm text-green-800">{successMessage}</p>
-              </div>
-            )}
-
-            <div>
-              <label htmlFor="resetEmail" className="block text-sm font-medium text-gray-700 mb-2">
-                Email
-              </label>
-              <input
-                id="resetEmail"
-                type="email"
-                value={resetEmail}
-                onChange={(e) => setResetEmail(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                placeholder="seu@email.com"
-                required
-              />
-            </div>
-
-            <div className="space-y-3">
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-              >
-                {isLoading ? 'Enviando...' : 'Enviar Link de Redefinição'}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleBackToLogin}
-                className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-medium"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Voltar ao Login
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
@@ -293,12 +197,13 @@ const LoginForm: React.FC = () => {
 
         {/* Forgot Password Link */}
         {!isSignUp && (
-          <div className="mt-6 text-center">
+          <div className="mt-4 text-sm text-center">
             <button
-              onClick={() => setShowForgotPassword(true)}
-              className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
+              type="button"
+              onClick={handleForgotPassword}
+              className="text-blue-600 hover:text-blue-800 font-medium"
             >
-              Esqueci minha senha
+              Esqueceu sua senha?
             </button>
           </div>
         )}

@@ -22,7 +22,7 @@ const TransactionsToPay: React.FC<TransactionsToPayProps> = ({ transactions, cat
   // Filter unpaid expenses and sort by date (oldest first)
   const unpaidExpenses = transactions
     .filter(t => t.type === 'expense' && !t.paid)
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 5); // Show only first 5
 
   if (unpaidExpenses.length === 0) {
@@ -51,7 +51,10 @@ const TransactionsToPay: React.FC<TransactionsToPayProps> = ({ transactions, cat
       </div>
       <div className="space-y-4">
         {unpaidExpenses.map((transaction) => {
-          const isOverdue = new Date(transaction.date) < new Date();
+          // Get today's date in YYYY-MM-DD format without timezone conversion
+          const today = new Date();
+          const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+          const isOverdue = transaction.date < today;
           
           return (
             <div key={transaction.id} className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${

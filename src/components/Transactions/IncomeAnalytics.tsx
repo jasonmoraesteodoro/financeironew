@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { TrendingUp, Edit2, Trash2, ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
 import { Transaction } from '../../types';
-import { formatCurrency, generateMonths, getAvailableYears, groupTransactionsByMonth } from '../../utils/formatters';
+import { formatCurrency, generateMonths, getAvailableYears, groupTransactionsByMonth, formatDate } from '../../utils/formatters';
 import TransactionForm from './TransactionForm';
 
 const IncomeAnalytics: React.FC = () => {
@@ -25,9 +25,10 @@ const IncomeAnalytics: React.FC = () => {
   // Filter transactions for the detailed section
   const getFilteredTransactions = () => {
     return incomeTransactions.filter(t => {
-      const transactionDate = new Date(t.date);
-      const matchesYear = selectedFilterYear === 'all' || transactionDate.getFullYear() === Number(selectedFilterYear);
-      const matchesMonth = selectedFilterMonth === 'all' || transactionDate.getMonth() + 1 === Number(selectedFilterMonth);
+      const transactionYear = parseInt(t.date.substring(0, 4));
+      const transactionMonth = parseInt(t.date.substring(5, 7));
+      const matchesYear = selectedFilterYear === 'all' || transactionYear === Number(selectedFilterYear);
+      const matchesMonth = selectedFilterMonth === 'all' || transactionMonth === Number(selectedFilterMonth);
       const matchesCategory = selectedFilterCategory === '' || t.category === selectedFilterCategory;
       
       return matchesYear && matchesMonth && matchesCategory;
@@ -505,7 +506,7 @@ const IncomeAnalytics: React.FC = () => {
                                 {getCategoryName(transaction.category)}
                               </span>
                               <span className="flex-shrink-0">
-                                {new Date(transaction.date).toLocaleDateString('pt-BR')}
+                                {formatDate(transaction.date)}
                               </span>
                             </div>
                           </div>
