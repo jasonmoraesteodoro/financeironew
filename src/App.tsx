@@ -167,14 +167,23 @@ const AppContent: React.FC = () => {
 
 function App() {
   return (
-    <Router>
+    <Router basename="/">
       <AuthProvider>
         <FinanceProvider>
           <Routes>
+            <Route path="/" element={
+              <ProtectedRoute>
+                <AppContent />
+              </ProtectedRoute>
+            } />
             <Route path="/login" element={<AuthRoutes />} />
             <Route path="/forgot-password" element={<AuthRoutes />} />
             <Route path="/reset-password" element={<AuthRoutes />} />
-            <Route path="/*" element={<AppContent />} />
+            <Route path="*" element={
+              <ProtectedRoute>
+                <AppContent />
+              </ProtectedRoute>
+            } />
           </Routes>
         </FinanceProvider>
       </AuthProvider>
