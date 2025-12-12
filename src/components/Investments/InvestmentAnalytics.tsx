@@ -1,21 +1,21 @@
 import React, { useState } from 'react';
-import { Banknote, Edit2, Trash2, ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Banknote, Edit2, Trash2, ArrowUpDown, ArrowUp, ArrowDown, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
 import { Transaction } from '../../types';
-import { formatCurrency, formatDate, generateMonths, getAvailableYears, groupTransactionsByMonth } from '../../utils/formatters';
+import { formatInvestmentCurrency, formatDate, generateMonths, getAvailableYears, groupTransactionsByMonth } from '../../utils/formatters';
 import InvestmentForm from './InvestmentForm';
 
 const InvestmentAnalytics: React.FC = () => {
   const { transactions, categories, bankAccounts, deleteTransaction } = useFinance();
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedFilterYear, setSelectedFilterYear] = useState('all');
   const [selectedFilterMonth, setSelectedFilterMonth] = useState('all');
   const [selectedFilterBank, setSelectedFilterBank] = useState('');
   const [showInvestmentForm, setShowInvestmentForm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
-  const [expandedBanks, setExpandedBanks] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState<'name' | 'total'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [detailedSortBy, setDetailedSortBy] = useState<'description' | 'bank' | 'date' | 'amount'>('date');
+  const [detailedSortOrder, setDetailedSortOrder] = useState<'asc' | 'desc'>('desc');
 
   // Filter investment transactions
   const investmentTransactions = transactions.filter(t => t.type === 'investment');
@@ -35,25 +35,30 @@ const InvestmentAnalytics: React.FC = () => {
 
   const filteredTransactions = getFilteredTransactions();
 
+  // Calculate totals (entries and withdrawals)
+  const totalEntries = filteredTransactions.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
+  const totalWithdrawals = Math.abs(filteredTransactions.filter(t => t.amount < 0).reduce((sum, t) => sum + t.amount, 0));
+  const netBalance = filteredTransactions.reduce((sum, t) => sum + t.amount, 0);
+
   // Calculate KPIs by bank
   const bankKPIs = bankAccounts.map(bank => {
     const bankTransactions = filteredTransactions.filter(t => t.bankAccount === bank.id);
+    const entries = bankTransactions.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
+    const withdrawals = Math.abs(bankTransactions.filter(t => t.amount < 0).reduce((sum, t) => sum + t.amount, 0));
     const total = bankTransactions.reduce((sum, t) => sum + t.amount, 0);
-    const totalInvestments = filteredTransactions.reduce((sum, t) => sum + t.amount, 0);
-    const percentage = totalInvestments > 0 ? (total / totalInvestments) * 100 : 0;
-    
+
     return {
       id: bank.id,
       name: bank.bankName,
       accountNumber: bank.accountNumber,
-      total,
-      percentage
+      entries,
+      withdrawals,
+      total
     };
-  }).sort((a, b) => b.total - a.total);
+  }).filter(kpi => kpi.total !== 0 || kpi.entries > 0 || kpi.withdrawals > 0)
+    .sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
 
-  const totalInvestments = bankKPIs.reduce((sum, kpi) => sum + kpi.total, 0);
-
-  const months = generateMonths(selectedYear);
+  const months = generateMonths(selectedFilterYear === 'all' ? new Date().getFullYear() : Number(selectedFilterYear));
 
   // Calculate monthly data by bank
   let monthlyData = bankAccounts.map(bank => {
@@ -108,12 +113,60 @@ const InvestmentAnalytics: React.FC = () => {
     if (sortBy !== column) {
       return <ArrowUpDown className="w-4 h-4 text-gray-400" />;
     }
-    return sortOrder === 'asc' ? 
-      <ArrowUp className="w-4 h-4 text-blue-600" /> : 
+    return sortOrder === 'asc' ?
+      <ArrowUp className="w-4 h-4 text-blue-600" /> :
       <ArrowDown className="w-4 h-4 text-blue-600" />;
   };
 
-  const groupedTransactions = groupTransactionsByMonth(filteredTransactions);
+  const getDetailedSortIcon = (column: 'description' | 'bank' | 'date' | 'amount') => {
+    if (detailedSortBy !== column) {
+      return <ArrowUpDown className="w-4 h-4 text-gray-400" />;
+    }
+    return detailedSortOrder === 'asc' ?
+      <ArrowUp className="w-4 h-4 text-blue-600" /> :
+      <ArrowDown className="w-4 h-4 text-blue-600" />;
+  };
+
+  const handleDetailedSort = (newSortBy: 'description' | 'bank' | 'date' | 'amount') => {
+    if (detailedSortBy === newSortBy) {
+      setDetailedSortOrder(detailedSortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setDetailedSortBy(newSortBy);
+      setDetailedSortOrder(newSortBy === 'date' ? 'desc' : 'asc');
+    }
+  };
+
+  const getDisplayTitle = (transaction: Transaction) => {
+    return transaction.observation || 'Investimento';
+  };
+
+  const sortDetailedTransactions = (transactions: Transaction[]) => {
+    return [...transactions].sort((a, b) => {
+      let comparison = 0;
+
+      switch (detailedSortBy) {
+        case 'description':
+          comparison = getDisplayTitle(a).localeCompare(getDisplayTitle(b), 'pt-BR');
+          break;
+        case 'bank':
+          comparison = getBankName(a.bankAccount).localeCompare(getBankName(b.bankAccount), 'pt-BR');
+          break;
+        case 'date':
+          comparison = a.date.localeCompare(b.date);
+          break;
+        case 'amount':
+          comparison = a.amount - b.amount;
+          break;
+        default:
+          return 0;
+      }
+
+      return detailedSortOrder === 'asc' ? comparison : -comparison;
+    });
+  };
+
+  const sortedTransactions = sortDetailedTransactions(filteredTransactions);
+  const groupedTransactions = groupTransactionsByMonth(sortedTransactions);
 
   const getBankName = (bankAccountId?: string) => {
     if (!bankAccountId) return 'Conta não especificada';
@@ -216,75 +269,95 @@ const InvestmentAnalytics: React.FC = () => {
         </div>
       </div>
 
-      {/* KPIs por Banco */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-        {/* Total Geral */}
+      {/* KPIs Principais */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Total de Entradas */}
         <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-blue-100 text-xs font-medium">Total Investido</p>
-              <p className="text-lg font-bold">{formatCurrency(totalInvestments)}</p>
+              <p className="text-blue-100 text-xs font-medium">Total de Entradas</p>
+              <p className="text-lg font-bold whitespace-nowrap">{formatInvestmentCurrency(totalEntries)}</p>
             </div>
-            <Banknote className="w-6 h-6 text-blue-200" />
+            <TrendingUp className="w-6 h-6 text-blue-200" />
           </div>
         </div>
 
-        {/* Todos os Bancos */}
-        {bankKPIs
-          .filter(kpi => kpi.total > 0)
-          .map((kpi) => (
-            <div key={kpi.id} className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <p className="text-gray-600 text-xs font-medium truncate">{kpi.name}</p>
-                  <p className="text-sm font-bold text-gray-900">{formatCurrency(kpi.total)}</p>
-                </div>
-                <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0"></div>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${kpi.percentage}%` }}
-                />
-              </div>
-              <p className="text-xs text-blue-600 mt-1 font-medium">
-                {kpi.percentage.toFixed(1)}% do total
-              </p>
+        {/* Total de Saídas */}
+        <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-lg p-4 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-red-100 text-xs font-medium">Total de Saídas</p>
+              <p className="text-lg font-bold whitespace-nowrap">{formatInvestmentCurrency(totalWithdrawals)}</p>
             </div>
-          ))}
+            <TrendingDown className="w-6 h-6 text-red-200" />
+          </div>
+        </div>
+
+        {/* Saldo Líquido */}
+        <div className={`bg-gradient-to-r ${netBalance >= 0 ? 'from-green-500 to-green-600' : 'from-red-500 to-red-600'} rounded-lg p-4 text-white`}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className={`${netBalance >= 0 ? 'text-green-100' : 'text-red-100'} text-xs font-medium`}>Saldo Líquido</p>
+              <p className="text-lg font-bold whitespace-nowrap">{formatInvestmentCurrency(netBalance)}</p>
+            </div>
+            <Wallet className={`w-6 h-6 ${netBalance >= 0 ? 'text-green-200' : 'text-red-200'}`} />
+          </div>
+        </div>
+      </div>
+
+      {/* KPIs por Banco */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+        {bankKPIs.map((kpi) => (
+          <div key={kpi.id} className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex-1 min-w-0">
+                <p className="text-gray-600 text-xs font-medium truncate">{kpi.name}</p>
+                <p className={`text-sm font-bold whitespace-nowrap ${kpi.total >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {formatInvestmentCurrency(kpi.total)}
+                </p>
+              </div>
+              {kpi.total >= 0 ? (
+                <TrendingUp className="w-4 h-4 text-green-500 flex-shrink-0 ml-2" />
+              ) : (
+                <TrendingDown className="w-4 h-4 text-red-500 flex-shrink-0 ml-2" />
+              )}
+            </div>
+            <div className="space-y-1 text-xs">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Entradas:</span>
+                <span className="text-blue-600 font-medium whitespace-nowrap">{formatInvestmentCurrency(kpi.entries)}</span>
+              </div>
+              {kpi.withdrawals > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Saídas:</span>
+                  <span className="text-red-600 font-medium whitespace-nowrap">{formatInvestmentCurrency(kpi.withdrawals)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Resumo por Conta e Mês */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-900">Resumo por Conta e Mês</h3>
-          <div className="flex items-center space-x-3">
-           <div className="flex items-center space-x-2 text-sm text-gray-600">
-             <span>Ordenar por:</span>
-             <button
-               onClick={() => handleSort('name')}
-               className="flex items-center space-x-1 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
-             >
-               <span>Nome</span>
-               {getSortIcon('name')}
-             </button>
-             <button
-               onClick={() => handleSort('total')}
-               className="flex items-center space-x-1 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
-             >
-               <span>Total</span>
-               {getSortIcon('total')}
-             </button>
-           </div>
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+          <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <span>Ordenar por:</span>
+            <button
+              onClick={() => handleSort('name')}
+              className="flex items-center space-x-1 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
             >
-              {availableYears.map(year => (
-                <option key={year} value={year}>{year}</option>
-              ))}
-            </select>
+              <span>Nome</span>
+              {getSortIcon('name')}
+            </button>
+            <button
+              onClick={() => handleSort('total')}
+              className="flex items-center space-x-1 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
+            >
+              <span>Total</span>
+              {getSortIcon('total')}
+            </button>
           </div>
         </div>
 
@@ -330,16 +403,20 @@ const InvestmentAnalytics: React.FC = () => {
                   {row.monthlyTotals.map((amount, monthIndex) => (
                     <td key={monthIndex} className="py-3 px-2 text-center text-sm">
                       {amount > 0 ? (
-                        <span className="text-blue-600 font-medium">
-                          {formatCurrency(amount)}
+                        <span className="text-blue-600 font-medium whitespace-nowrap">
+                          {formatInvestmentCurrency(amount)}
+                        </span>
+                      ) : amount < 0 ? (
+                        <span className="text-red-600 font-medium whitespace-nowrap">
+                          {formatInvestmentCurrency(amount)}
                         </span>
                       ) : (
                         <span className="text-gray-400">-</span>
                       )}
                     </td>
                   ))}
-                  <td className="py-3 px-4 text-right font-bold text-blue-600">
-                    {formatCurrency(row.total)}
+                  <td className={`py-3 px-4 text-right font-bold whitespace-nowrap ${row.total >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatInvestmentCurrency(row.total)}
                   </td>
                 </tr>
               ))}
@@ -349,16 +426,20 @@ const InvestmentAnalytics: React.FC = () => {
                 {monthlyTotals.map((amount, monthIndex) => (
                   <td key={monthIndex} className="py-3 px-2 text-center text-sm">
                     {amount > 0 ? (
-                      <span className="text-blue-600 font-bold">
-                        {formatCurrency(amount)}
+                      <span className="text-blue-600 font-bold whitespace-nowrap">
+                        {formatInvestmentCurrency(amount)}
+                      </span>
+                    ) : amount < 0 ? (
+                      <span className="text-red-600 font-bold whitespace-nowrap">
+                        {formatInvestmentCurrency(amount)}
                       </span>
                     ) : (
                       <span className="text-gray-400">-</span>
                     )}
                   </td>
                 ))}
-                <td className="py-3 px-4 text-right text-blue-600 font-bold text-lg">
-                  {formatCurrency(grandTotal)}
+                <td className={`py-3 px-4 text-right font-bold text-lg whitespace-nowrap ${grandTotal >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {formatInvestmentCurrency(grandTotal)}
                 </td>
               </tr>
             </tbody>
@@ -366,7 +447,7 @@ const InvestmentAnalytics: React.FC = () => {
         </div>
       </div>
 
-      {/* Seção de Transações Detalhadas */}
+      {/* Seção de Investimentos Detalhados */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="mb-6">
           <h3 className="text-lg font-semibold text-gray-900">Investimentos Detalhados</h3>
@@ -392,74 +473,132 @@ const InvestmentAnalytics: React.FC = () => {
               <div className="flex items-center justify-between mb-6">
                 <p className="text-sm text-gray-600">
                   {filteredTransactions.length} investimento(s) encontrado(s) - Total: {' '}
-                  <span className="font-semibold text-blue-600">
-                    {formatCurrency(filteredTransactions.reduce((sum, t) => sum + t.amount, 0))}
+                  <span className={`font-semibold whitespace-nowrap ${netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatInvestmentCurrency(filteredTransactions.reduce((sum, t) => sum + t.amount, 0))}
                   </span>
                 </p>
               </div>
-              
+
               {/* Investimentos agrupados por mês */}
               {groupedTransactions.map((monthGroup) => (
                 <div key={monthGroup.monthKey} className="space-y-3">
                   {/* Cabeçalho do mês */}
-                  <div className="flex items-center justify-between py-3 px-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h4 className="text-lg font-semibold text-blue-800 capitalize">
+                  <div className={`flex items-center justify-between py-3 px-4 rounded-lg ${monthGroup.total >= 0 ? 'bg-blue-50 border border-blue-200' : 'bg-red-50 border border-red-200'}`}>
+                    <h4 className={`text-lg font-semibold capitalize ${monthGroup.total >= 0 ? 'text-blue-800' : 'text-red-800'}`}>
                       {monthGroup.monthLabel}
                     </h4>
                     <div className="text-right">
-                      <span className="text-sm text-blue-600">
+                      <span className={`text-sm ${monthGroup.total >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
                         {monthGroup.transactions.length} investimento(s)
                       </span>
-                      <div className="font-bold text-blue-700">
-                        {formatCurrency(monthGroup.total)}
+                      <div className={`font-bold whitespace-nowrap ${monthGroup.total >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                        {formatInvestmentCurrency(monthGroup.total)}
                       </div>
                     </div>
                   </div>
-                  
-                  {/* Investimentos do mês */}
-                  {monthGroup.transactions.map((transaction) => (
-                    <div key={transaction.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors ml-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-3 h-3 rounded-full bg-blue-500 flex-shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <h4 className="font-semibold text-gray-900 truncate">
-                              {transaction.observation || 'Investimento'}
-                            </h4>
-                            <div className="flex items-center space-x-4 text-sm text-gray-500 mt-1">
-                              <span className="truncate">
+
+                  {/* Tabela de Investimentos do mês */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full bg-white border border-gray-200 rounded-lg shadow-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                            <button
+                              onClick={() => handleDetailedSort('description')}
+                              className="flex items-center space-x-2 w-full text-left hover:text-blue-600 transition-colors"
+                            >
+                              <span>Descrição</span>
+                              {getDetailedSortIcon('description')}
+                            </button>
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                            <button
+                              onClick={() => handleDetailedSort('bank')}
+                              className="flex items-center space-x-2 w-full text-left hover:text-blue-600 transition-colors"
+                            >
+                              <span>Conta Bancária</span>
+                              {getDetailedSortIcon('bank')}
+                            </button>
+                          </th>
+                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                            <button
+                              onClick={() => handleDetailedSort('date')}
+                              className="flex items-center justify-center space-x-2 w-full hover:text-blue-600 transition-colors"
+                            >
+                              <span>Data</span>
+                              {getDetailedSortIcon('date')}
+                            </button>
+                          </th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                            <button
+                              onClick={() => handleDetailedSort('amount')}
+                              className="flex items-center justify-end space-x-2 w-full hover:text-blue-600 transition-colors"
+                            >
+                              <span>Valor</span>
+                              {getDetailedSortIcon('amount')}
+                            </button>
+                          </th>
+                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Ações
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {monthGroup.transactions.map((transaction) => (
+                          <tr key={transaction.id} className={`transition-colors ${transaction.amount >= 0 ? 'hover:bg-blue-50' : 'hover:bg-red-50'}`}>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center space-x-3">
+                                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${transaction.amount >= 0 ? 'bg-blue-500' : 'bg-red-500'}`} />
+                                <div className="min-w-0">
+                                  <div className="font-medium text-gray-900 truncate">
+                                    {getDisplayTitle(transaction)}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="text-sm text-gray-900">
                                 {getBankName(transaction.bankAccount)}
-                              </span>
-                              <span className="flex-shrink-0">
-                                {formatDate(transaction.date)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-3 ml-4">
-                        <span className="font-bold text-lg text-blue-600">
-                          {formatCurrency(transaction.amount)}
-                        </span>
-                        <div className="flex items-center space-x-1">
-                          <button
-                            onClick={() => handleEditTransaction(transaction)}
-                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Editar"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteTransaction(transaction.id)}
-                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Excluir"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-center text-sm text-gray-900">
+                              {formatDate(transaction.date)}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <div className="flex items-center justify-end space-x-2">
+                                {transaction.amount >= 0 ? (
+                                  <TrendingUp className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                                ) : (
+                                  <TrendingDown className="w-4 h-4 text-red-500 flex-shrink-0" />
+                                )}
+                                <span className={`font-bold whitespace-nowrap ${transaction.amount >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                                  {formatInvestmentCurrency(transaction.amount)}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center justify-center space-x-1">
+                                <button
+                                  onClick={() => handleEditTransaction(transaction)}
+                                  className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                  title="Editar"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteTransaction(transaction.id)}
+                                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                  title="Excluir"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               ))}
             </>

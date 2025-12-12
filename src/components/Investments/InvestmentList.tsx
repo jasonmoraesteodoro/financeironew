@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
 import { Transaction } from '../../types';
-import { formatCurrency } from '../../utils/formatters';
+import { formatInvestmentCurrency } from '../../utils/formatters';
 import InvestmentForm from './InvestmentForm';
 import InvestmentAnalytics from './InvestmentAnalytics';
 
@@ -30,7 +30,7 @@ const InvestmentList: React.FC = () => {
             <span className="ml-2">Meus Investimentos</span>
           </h3>
           <p className="text-sm text-gray-600 mt-1">
-            Total investido: <span className="font-semibold">{formatCurrency(totalAmount)}</span> ({investmentTransactions.length} investimentos)
+            Total investido: <span className="font-semibold whitespace-nowrap">{formatInvestmentCurrency(totalAmount)}</span> ({investmentTransactions.length} investimentos)
           </p>
         </div>
         <div className="flex items-center space-x-3">

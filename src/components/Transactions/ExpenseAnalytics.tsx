@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TrendingDown, Edit2, Trash2, ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Check, X } from 'lucide-react';
+import { TrendingDown, CreditCard as Edit2, Trash2, ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Check, X } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
 import { Transaction } from '../../types';
 import { formatCurrency, generateMonths, getAvailableYears, groupTransactionsByMonth, formatDate } from '../../utils/formatters';
@@ -7,7 +7,6 @@ import TransactionForm from './TransactionForm';
 
 const ExpenseAnalytics: React.FC = () => {
   const { transactions, categories, subcategories, deleteTransaction, updateTransaction } = useFinance();
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedFilterYear, setSelectedFilterYear] = useState(new Date().getFullYear().toString());
   const [selectedFilterMonth, setSelectedFilterMonth] = useState('all');
   const [selectedFilterCategory, setSelectedFilterCategory] = useState('');
@@ -17,6 +16,8 @@ const ExpenseAnalytics: React.FC = () => {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState<'name' | 'total'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [detailedSortBy, setDetailedSortBy] = useState<'description' | 'category' | 'date' | 'amount' | 'paid'>('date');
+  const [detailedSortOrder, setDetailedSortOrder] = useState<'asc' | 'desc'>('desc');
 
   // Filter expense transactions
   const expenseTransactions = transactions.filter(t => t.type === 'expense');
@@ -41,25 +42,7 @@ const ExpenseAnalytics: React.FC = () => {
 
   const filteredTransactions = getFilteredTransactions();
 
-  // Calculate KPIs by category
-  const categoryKPIs = expenseCategories.map(category => {
-    const categoryTransactions = filteredTransactions.filter(t => t.category === category.id);
-    const total = categoryTransactions.reduce((sum, t) => sum + t.amount, 0);
-    const totalExpenses = filteredTransactions.reduce((sum, t) => sum + t.amount, 0);
-    const percentage = totalExpenses > 0 ? (total / totalExpenses) * 100 : 0;
-    
-    return {
-      id: category.id,
-      name: category.name,
-      total,
-      percentage,
-      color: category.color
-    };
-  }).sort((a, b) => b.total - a.total);
-
-  const totalExpenses = categoryKPIs.reduce((sum, kpi) => sum + kpi.total, 0);
-
-  const months = generateMonths(selectedYear);
+  const months = generateMonths(selectedFilterYear === 'all' ? new Date().getFullYear() : Number(selectedFilterYear));
 
   // Calculate monthly data by category
   let monthlyData = expenseCategories.map(category => {
@@ -153,8 +136,93 @@ const ExpenseAnalytics: React.FC = () => {
       <ArrowDown className="w-4 h-4 text-red-600" />;
   };
 
-  const groupedTransactions = groupTransactionsByMonth(filteredTransactions);
-  
+  const getDetailedSortIcon = (column: 'description' | 'category' | 'date' | 'amount' | 'paid') => {
+    if (detailedSortBy !== column) {
+      return <ArrowUpDown className="w-4 h-4 text-gray-400" />;
+    }
+    return detailedSortOrder === 'asc' ? 
+      <ArrowUp className="w-4 h-4 text-red-600" /> : 
+      <ArrowDown className="w-4 h-4 text-red-600" />;
+  };
+
+  const handleDetailedSort = (newSortBy: 'description' | 'category' | 'date' | 'amount' | 'paid') => {
+    if (detailedSortBy === newSortBy) {
+      setDetailedSortOrder(detailedSortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setDetailedSortBy(newSortBy);
+      setDetailedSortOrder(newSortBy === 'date' ? 'desc' : 'asc');
+    }
+  };
+
+  const getSubCategoryName = (subCategoryId?: string) => {
+    if (!subCategoryId) return null;
+    const subCategory = expenseSubcategories.find(sc => sc.id === subCategoryId);
+    return subCategory?.name || null;
+  };
+
+  const getCategoryName = (categoryId: string) => {
+    const category = expenseCategories.find(c => c.id === categoryId);
+    return category?.name || 'Categoria não encontrada';
+  };
+
+  const getDisplayTitle = (transaction: Transaction) => {
+    const subCategoryName = getSubCategoryName(transaction.subCategory);
+    if (subCategoryName) {
+      return subCategoryName;
+    }
+
+    return getCategoryName(transaction.category);
+  };
+
+  const getDisplaySubtitle = (transaction: Transaction) => {
+    const categoryName = getCategoryName(transaction.category);
+    const subCategoryName = getSubCategoryName(transaction.subCategory);
+    const observation = transaction.observation;
+
+    const parts = [];
+
+    if (subCategoryName) {
+      parts.push(categoryName);
+    }
+
+    if (observation) {
+      parts.push(observation);
+    }
+
+    return parts.join(' • ');
+  };
+
+  const sortDetailedTransactions = (transactions: Transaction[]) => {
+    return [...transactions].sort((a, b) => {
+      let comparison = 0;
+
+      switch (detailedSortBy) {
+        case 'description':
+          comparison = getDisplayTitle(a).localeCompare(getDisplayTitle(b), 'pt-BR');
+          break;
+        case 'category':
+          comparison = getCategoryName(a.category).localeCompare(getCategoryName(b.category), 'pt-BR');
+          break;
+        case 'date':
+          comparison = a.date.localeCompare(b.date);
+          break;
+        case 'amount':
+          comparison = a.amount - b.amount;
+          break;
+        case 'paid':
+          comparison = (a.paid ? 1 : 0) - (b.paid ? 1 : 0);
+          break;
+        default:
+          return 0;
+      }
+
+      return detailedSortOrder === 'asc' ? comparison : -comparison;
+    });
+  };
+
+  const sortedTransactions = sortDetailedTransactions(filteredTransactions);
+  const groupedTransactions = groupTransactionsByMonth(sortedTransactions);
+
   const handleEditTransaction = (transaction: Transaction) => {
     setEditingTransaction(transaction);
     setShowTransactionForm(true);
@@ -174,46 +242,6 @@ const ExpenseAnalytics: React.FC = () => {
   const handleCloseForm = () => {
     setShowTransactionForm(false);
     setEditingTransaction(null);
-  };
-
-  const getSubCategoryName = (subCategoryId?: string) => {
-    if (!subCategoryId) return null;
-    const subCategory = expenseSubcategories.find(sc => sc.id === subCategoryId);
-    return subCategory?.name || null;
-  };
-
-  const getCategoryName = (categoryId: string) => {
-    const category = expenseCategories.find(c => c.id === categoryId);
-    return category?.name || 'Categoria não encontrada';
-  };
-
-  const getDisplayTitle = (transaction: Transaction) => {
-    const subCategoryName = getSubCategoryName(transaction.subCategory);
-    if (subCategoryName) {
-      return subCategoryName; // Prioridade: Subcategoria
-    }
-    
-    return getCategoryName(transaction.category); // Fallback: Categoria
-  };
-
-  const getDisplaySubtitle = (transaction: Transaction) => {
-    const categoryName = getCategoryName(transaction.category);
-    const subCategoryName = getSubCategoryName(transaction.subCategory);
-    const observation = transaction.observation;
-    
-    const parts = [];
-    
-    // Se tem subcategoria, mostra a categoria (já que o título é a subcategoria)
-    if (subCategoryName) {
-      parts.push(categoryName);
-    }
-    
-    // Adiciona observação se existir
-    if (observation) {
-      parts.push(observation);
-    }
-    
-    return parts.join(' • ');
   };
 
   const handleMarkAsPaid = async (transactionId: string) => {
@@ -325,74 +353,26 @@ const ExpenseAnalytics: React.FC = () => {
         </div>
       </div>
 
-      {/* KPIs por Categoria */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-        {/* Total Geral */}
-        <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-lg p-4 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-red-100 text-xs font-medium">Total Geral</p>
-              <p className="text-lg font-bold">{formatCurrency(totalExpenses)}</p>
-            </div>
-            <TrendingDown className="w-6 h-6 text-red-200" />
-          </div>
-        </div>
-
-        {/* Todas as Categorias */}
-        {categoryKPIs
-          .map((kpi) => (
-            <div key={kpi.id} className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <p className="text-gray-600 text-xs font-medium truncate">{kpi.name}</p>
-                  <p className="text-sm font-bold text-gray-900">{formatCurrency(kpi.total)}</p>
-                </div>
-                <div className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0"></div>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-red-500 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${kpi.percentage}%` }}
-                />
-              </div>
-              <p className="text-xs text-red-600 mt-1 font-medium">
-                {kpi.percentage.toFixed(1)}% do total
-              </p>
-            </div>
-          ))}
-      </div>
-
       {/* Resumo por Categoria e Mês */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-900">Resumo por Categoria e Mês</h3>
-          <div className="flex items-center space-x-3">
-           <div className="flex items-center space-x-2 text-sm text-gray-600">
-             <span>Ordenar por:</span>
-             <button
-               onClick={() => handleSort('name')}
-               className="flex items-center space-x-1 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
-             >
-               <span>Nome</span>
-               {getSortIcon('name')}
-             </button>
-             <button
-               onClick={() => handleSort('total')}
-               className="flex items-center space-x-1 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
-             >
-               <span>Total</span>
-               {getSortIcon('total')}
-             </button>
-           </div>
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm"
+          <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <span>Ordenar por:</span>
+            <button
+              onClick={() => handleSort('name')}
+              className="flex items-center space-x-1 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
             >
-              {availableYears.map(year => (
-                <option key={year} value={year}>{year}</option>
-              ))}
-            </select>
+              <span>Nome</span>
+              {getSortIcon('name')}
+            </button>
+            <button
+              onClick={() => handleSort('total')}
+              className="flex items-center space-x-1 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
+            >
+              <span>Total</span>
+              {getSortIcon('total')}
+            </button>
           </div>
         </div>
 
@@ -565,77 +545,147 @@ const ExpenseAnalytics: React.FC = () => {
                     </div>
                   </div>
                   
-                  {/* Transações do mês */}
-                  {monthGroup.transactions.map((transaction) => (
-                    <div key={transaction.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-red-300 hover:bg-red-50 transition-colors ml-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-3 h-3 rounded-full bg-red-500 flex-shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <h4 className="font-semibold text-gray-900 truncate">
-                              {getDisplayTitle(transaction)}
-                            </h4>
-                            <div className="flex items-center space-x-4 text-sm text-gray-500 mt-1">
-                              {getDisplaySubtitle(transaction) && (
-                                <span className="truncate">
-                                  {getDisplaySubtitle(transaction)}
-                                </span>
+                  {/* Tabela de Transações do mês */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full bg-white border border-gray-200 rounded-lg shadow-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                            <button
+                              onClick={() => handleDetailedSort('description')}
+                              className="flex items-center space-x-2 w-full text-left hover:text-red-600 transition-colors"
+                            >
+                              <span>Descrição</span>
+                              {getDetailedSortIcon('description')}
+                            </button>
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                            <button
+                              onClick={() => handleDetailedSort('category')}
+                              className="flex items-center space-x-2 w-full text-left hover:text-red-600 transition-colors"
+                            >
+                              <span>Categoria</span>
+                              {getDetailedSortIcon('category')}
+                            </button>
+                          </th>
+                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                            <button
+                              onClick={() => handleDetailedSort('date')}
+                              className="flex items-center justify-center space-x-2 w-full hover:text-red-600 transition-colors"
+                            >
+                              <span>Data</span>
+                              {getDetailedSortIcon('date')}
+                            </button>
+                          </th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                            <button
+                              onClick={() => handleDetailedSort('amount')}
+                              className="flex items-center justify-end space-x-2 w-full hover:text-red-600 transition-colors"
+                            >
+                              <span>Valor</span>
+                              {getDetailedSortIcon('amount')}
+                            </button>
+                          </th>
+                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                            <button
+                              onClick={() => handleDetailedSort('paid')}
+                              className="flex items-center justify-center space-x-2 w-full hover:text-red-600 transition-colors"
+                            >
+                              <span>Status</span>
+                              {getDetailedSortIcon('paid')}
+                            </button>
+                          </th>
+                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Ações
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {monthGroup.transactions.map((transaction) => (
+                          <tr key={transaction.id} className="hover:bg-red-50 transition-colors">
+                            <td className="px-4 py-3">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+                                <div className="min-w-0">
+                                  <div className="font-medium text-gray-900 truncate">
+                                    {getDisplayTitle(transaction)}
+                                  </div>
+                                  {transaction.observation && (
+                                    <div className="text-sm text-gray-500 truncate">
+                                      {transaction.observation}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="text-sm text-gray-900">
+                                {getCategoryName(transaction.category)}
+                              </div>
+                              {getSubCategoryName(transaction.subCategory) && (
+                                <div className="text-xs text-gray-500">
+                                  {getSubCategoryName(transaction.subCategory)}
+                                </div>
                               )}
-                              <span className="flex-shrink-0">
-                                {formatDate(transaction.date)}
+                            </td>
+                            <td className="px-4 py-3 text-center text-sm text-gray-900">
+                              {formatDate(transaction.date)}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <span className="font-bold text-red-600">
+                                {formatCurrency(transaction.amount)}
                               </span>
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                                 transaction.paid 
                                   ? 'bg-green-100 text-green-800' 
                                   : 'bg-red-100 text-red-800'
                               }`}>
                                 {transaction.paid ? 'Pago' : 'Pendente'}
                               </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-3 ml-4">
-                        <span className="font-bold text-lg text-red-600">
-                          {formatCurrency(transaction.amount)}
-                        </span>
-                        <div className="flex items-center space-x-1">
-                          {!transaction.paid && (
-                            <button
-                              onClick={() => handleMarkAsPaid(transaction.id)}
-                              className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                              title="Marcar como Pago"
-                            >
-                              <Check className="w-4 h-4" />
-                            </button>
-                          )}
-                          {transaction.paid && (
-                            <button
-                              onClick={() => handleMarkAsPending(transaction.id)}
-                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Desmarcar como Pago"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleEditTransaction(transaction)}
-                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Editar"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteTransaction(transaction.id)}
-                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Excluir"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center justify-center space-x-1">
+                                {!transaction.paid && (
+                                  <button
+                                    onClick={() => handleMarkAsPaid(transaction.id)}
+                                    className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                    title="Marcar como Pago"
+                                  >
+                                    <Check className="w-4 h-4" />
+                                  </button>
+                                )}
+                                {transaction.paid && (
+                                  <button
+                                    onClick={() => handleMarkAsPending(transaction.id)}
+                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    title="Desmarcar como Pago"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => handleEditTransaction(transaction)}
+                                  className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                  title="Editar"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteTransaction(transaction.id)}
+                                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                  title="Excluir"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               ))}
             </>

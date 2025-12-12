@@ -2,12 +2,11 @@ import React, { useState } from 'react';
 import { TrendingUp, Edit2, Trash2, ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
 import { Transaction } from '../../types';
-import { formatCurrency, generateMonths, getAvailableYears, groupTransactionsByMonth, formatDate } from '../../utils/formatters';
+import { formatInvestmentCurrency, generateMonths, getAvailableYears, groupTransactionsByMonth, formatDate } from '../../utils/formatters';
 import TransactionForm from './TransactionForm';
 
 const IncomeAnalytics: React.FC = () => {
   const { transactions, categories, subcategories, deleteTransaction } = useFinance();
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedFilterYear, setSelectedFilterYear] = useState(new Date().getFullYear().toString());
   const [selectedFilterMonth, setSelectedFilterMonth] = useState('all');
   const [selectedFilterCategory, setSelectedFilterCategory] = useState('');
@@ -16,6 +15,8 @@ const IncomeAnalytics: React.FC = () => {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState<'name' | 'total'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [detailedSortBy, setDetailedSortBy] = useState<'description' | 'category' | 'date' | 'amount'>('date');
+  const [detailedSortOrder, setDetailedSortOrder] = useState<'asc' | 'desc'>('desc');
 
   // Filter income transactions
   const incomeTransactions = transactions.filter(t => t.type === 'income');
@@ -55,7 +56,7 @@ const IncomeAnalytics: React.FC = () => {
 
   const totalIncome = categoryKPIs.reduce((sum, kpi) => sum + kpi.total, 0);
 
-  const months = generateMonths(selectedYear);
+  const months = generateMonths(selectedFilterYear === 'all' ? new Date().getFullYear() : Number(selectedFilterYear));
 
   // Calculate monthly data by category
   let monthlyData = incomeCategories.map(category => {
@@ -144,17 +145,93 @@ const IncomeAnalytics: React.FC = () => {
     if (sortBy !== column) {
       return <ArrowUpDown className="w-4 h-4 text-gray-400" />;
     }
-    return sortOrder === 'asc' ? 
-      <ArrowUp className="w-4 h-4 text-green-600" /> : 
+    return sortOrder === 'asc' ?
+      <ArrowUp className="w-4 h-4 text-green-600" /> :
       <ArrowDown className="w-4 h-4 text-green-600" />;
   };
 
-  const groupedTransactions = groupTransactionsByMonth(filteredTransactions);
+  const getDetailedSortIcon = (column: 'description' | 'category' | 'date' | 'amount') => {
+    if (detailedSortBy !== column) {
+      return <ArrowUpDown className="w-4 h-4 text-gray-400" />;
+    }
+    return detailedSortOrder === 'asc' ?
+      <ArrowUp className="w-4 h-4 text-green-600" /> :
+      <ArrowDown className="w-4 h-4 text-green-600" />;
+  };
+
+  const handleDetailedSort = (newSortBy: 'description' | 'category' | 'date' | 'amount') => {
+    if (detailedSortBy === newSortBy) {
+      setDetailedSortOrder(detailedSortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setDetailedSortBy(newSortBy);
+      setDetailedSortOrder(newSortBy === 'date' ? 'desc' : 'asc');
+    }
+  };
+
+  const getSubCategoryName = (subCategoryId?: string) => {
+    if (!subCategoryId) return null;
+    const subCategory = incomeSubcategories.find(sc => sc.id === subCategoryId);
+    return subCategory?.name || null;
+  };
 
   const getCategoryName = (categoryId: string) => {
     const category = incomeCategories.find(c => c.id === categoryId);
     return category?.name || 'Categoria não encontrada';
   };
+
+  const getDisplayTitle = (transaction: Transaction) => {
+    const subCategoryName = getSubCategoryName(transaction.subCategory);
+    if (subCategoryName) {
+      return subCategoryName;
+    }
+    return getCategoryName(transaction.category);
+  };
+
+  const getDisplaySubtitle = (transaction: Transaction) => {
+    const categoryName = getCategoryName(transaction.category);
+    const subCategoryName = getSubCategoryName(transaction.subCategory);
+    const observation = transaction.observation;
+
+    const parts = [];
+
+    if (subCategoryName) {
+      parts.push(categoryName);
+    }
+
+    if (observation) {
+      parts.push(observation);
+    }
+
+    return parts.join(' • ');
+  };
+
+  const sortDetailedTransactions = (transactions: Transaction[]) => {
+    return [...transactions].sort((a, b) => {
+      let comparison = 0;
+
+      switch (detailedSortBy) {
+        case 'description':
+          comparison = getDisplayTitle(a).localeCompare(getDisplayTitle(b), 'pt-BR');
+          break;
+        case 'category':
+          comparison = getCategoryName(a.category).localeCompare(getCategoryName(b.category), 'pt-BR');
+          break;
+        case 'date':
+          comparison = a.date.localeCompare(b.date);
+          break;
+        case 'amount':
+          comparison = a.amount - b.amount;
+          break;
+        default:
+          return 0;
+      }
+
+      return detailedSortOrder === 'asc' ? comparison : -comparison;
+    });
+  };
+
+  const sortedTransactions = sortDetailedTransactions(filteredTransactions);
+  const groupedTransactions = groupTransactionsByMonth(sortedTransactions);
 
   const handleEditTransaction = (transaction: Transaction) => {
     setEditingTransaction(transaction);
@@ -258,7 +335,7 @@ const IncomeAnalytics: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-green-100 text-xs font-medium">Total Geral</p>
-              <p className="text-lg font-bold">{formatCurrency(totalIncome)}</p>
+              <p className="text-lg font-bold whitespace-nowrap">{formatInvestmentCurrency(totalIncome)}</p>
             </div>
             <TrendingUp className="w-6 h-6 text-green-200" />
           </div>
@@ -271,7 +348,7 @@ const IncomeAnalytics: React.FC = () => {
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <p className="text-gray-600 text-xs font-medium truncate">{kpi.name}</p>
-                  <p className="text-sm font-bold text-gray-900">{formatCurrency(kpi.total)}</p>
+                  <p className="text-sm font-bold text-gray-900 whitespace-nowrap">{formatInvestmentCurrency(kpi.total)}</p>
                 </div>
                 <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></div>
               </div>
@@ -292,33 +369,22 @@ const IncomeAnalytics: React.FC = () => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-900">Resumo por Categoria e Mês</h3>
-          <div className="flex items-center space-x-3">
-           <div className="flex items-center space-x-2 text-sm text-gray-600">
-             <span>Ordenar por:</span>
-             <button
-               onClick={() => handleSort('name')}
-               className="flex items-center space-x-1 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
-             >
-               <span>Nome</span>
-               {getSortIcon('name')}
-             </button>
-             <button
-               onClick={() => handleSort('total')}
-               className="flex items-center space-x-1 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
-             >
-               <span>Total</span>
-               {getSortIcon('total')}
-             </button>
-           </div>
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+          <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <span>Ordenar por:</span>
+            <button
+              onClick={() => handleSort('name')}
+              className="flex items-center space-x-1 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
             >
-              {availableYears.map(year => (
-                <option key={year} value={year}>{year}</option>
-              ))}
-            </select>
+              <span>Nome</span>
+              {getSortIcon('name')}
+            </button>
+            <button
+              onClick={() => handleSort('total')}
+              className="flex items-center space-x-1 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
+            >
+              <span>Total</span>
+              {getSortIcon('total')}
+            </button>
           </div>
         </div>
 
@@ -378,16 +444,16 @@ const IncomeAnalytics: React.FC = () => {
                     {row.monthlyTotals.map((amount, monthIndex) => (
                       <td key={monthIndex} className="py-3 px-2 text-center text-sm">
                         {amount > 0 ? (
-                          <span className="text-green-600 font-medium">
-                            {formatCurrency(amount)}
+                          <span className="text-green-600 font-medium whitespace-nowrap">
+                            {formatInvestmentCurrency(amount)}
                           </span>
                         ) : (
                           <span className="text-gray-400">-</span>
                         )}
                       </td>
                     ))}
-                    <td className="py-3 px-4 text-right font-bold text-green-600">
-                      {formatCurrency(row.total)}
+                    <td className="py-3 px-4 text-right font-bold text-green-600 whitespace-nowrap">
+                      {formatInvestmentCurrency(row.total)}
                     </td>
                   </tr>
                   
@@ -403,16 +469,16 @@ const IncomeAnalytics: React.FC = () => {
                       {subcategory.monthlyTotals.map((amount, monthIndex) => (
                         <td key={monthIndex} className="py-2 px-2 text-center text-sm">
                           {amount > 0 ? (
-                            <span className="text-green-500 font-medium">
-                              {formatCurrency(amount)}
+                            <span className="text-green-500 font-medium whitespace-nowrap">
+                              {formatInvestmentCurrency(amount)}
                             </span>
                           ) : (
                             <span className="text-gray-300">-</span>
                           )}
                         </td>
                       ))}
-                      <td className="py-2 px-4 text-right font-semibold text-green-500 text-sm">
-                        {formatCurrency(subcategory.total)}
+                      <td className="py-2 px-4 text-right font-semibold text-green-500 text-sm whitespace-nowrap">
+                        {formatInvestmentCurrency(subcategory.total)}
                       </td>
                     </tr>
                   ))}
@@ -424,16 +490,16 @@ const IncomeAnalytics: React.FC = () => {
                 {monthlyTotals.map((amount, monthIndex) => (
                   <td key={monthIndex} className="py-3 px-2 text-center text-sm">
                     {amount > 0 ? (
-                      <span className="text-green-600 font-bold">
-                        {formatCurrency(amount)}
+                      <span className="text-green-600 font-bold whitespace-nowrap">
+                        {formatInvestmentCurrency(amount)}
                       </span>
                     ) : (
                       <span className="text-gray-400">-</span>
                     )}
                   </td>
                 ))}
-                <td className="py-3 px-4 text-right text-green-600 font-bold text-lg">
-                  {formatCurrency(grandTotal)}
+                <td className="py-3 px-4 text-right text-green-600 font-bold text-lg whitespace-nowrap">
+                  {formatInvestmentCurrency(grandTotal)}
                 </td>
               </tr>
             </tbody>
@@ -467,8 +533,8 @@ const IncomeAnalytics: React.FC = () => {
               <div className="flex items-center justify-between mb-6">
                 <p className="text-sm text-gray-600">
                   {filteredTransactions.length} receita(s) encontrada(s) - Total: {' '}
-                  <span className="font-semibold text-green-600">
-                    {formatCurrency(filteredTransactions.reduce((sum, t) => sum + t.amount, 0))}
+                  <span className="font-semibold text-green-600 whitespace-nowrap">
+                    {formatInvestmentCurrency(filteredTransactions.reduce((sum, t) => sum + t.amount, 0))}
                   </span>
                 </p>
               </div>
@@ -485,56 +551,117 @@ const IncomeAnalytics: React.FC = () => {
                       <span className="text-sm text-green-600">
                         {monthGroup.transactions.length} transação(ões)
                       </span>
-                      <div className="font-bold text-green-700">
-                        {formatCurrency(monthGroup.total)}
+                      <div className="font-bold text-green-700 whitespace-nowrap">
+                        {formatInvestmentCurrency(monthGroup.total)}
                       </div>
                     </div>
                   </div>
-                  
-                  {/* Transações do mês */}
-                  {monthGroup.transactions.map((transaction) => (
-                    <div key={transaction.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-green-300 hover:bg-green-50 transition-colors ml-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-3 h-3 rounded-full bg-green-500 flex-shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <h4 className="font-semibold text-gray-900 truncate">
-                              {transaction.observation || `Receita - ${getCategoryName(transaction.category)}`}
-                            </h4>
-                            <div className="flex items-center space-x-4 text-sm text-gray-500 mt-1">
-                              <span className="truncate">
+
+                  {/* Tabela de Transações do mês */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full bg-white border border-gray-200 rounded-lg shadow-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                            <button
+                              onClick={() => handleDetailedSort('description')}
+                              className="flex items-center space-x-2 w-full text-left hover:text-green-600 transition-colors"
+                            >
+                              <span>Descrição</span>
+                              {getDetailedSortIcon('description')}
+                            </button>
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                            <button
+                              onClick={() => handleDetailedSort('category')}
+                              className="flex items-center space-x-2 w-full text-left hover:text-green-600 transition-colors"
+                            >
+                              <span>Categoria</span>
+                              {getDetailedSortIcon('category')}
+                            </button>
+                          </th>
+                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                            <button
+                              onClick={() => handleDetailedSort('date')}
+                              className="flex items-center justify-center space-x-2 w-full hover:text-green-600 transition-colors"
+                            >
+                              <span>Data</span>
+                              {getDetailedSortIcon('date')}
+                            </button>
+                          </th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                            <button
+                              onClick={() => handleDetailedSort('amount')}
+                              className="flex items-center justify-end space-x-2 w-full hover:text-green-600 transition-colors"
+                            >
+                              <span>Valor</span>
+                              {getDetailedSortIcon('amount')}
+                            </button>
+                          </th>
+                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Ações
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {monthGroup.transactions.map((transaction) => (
+                          <tr key={transaction.id} className="hover:bg-green-50 transition-colors">
+                            <td className="px-4 py-3">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+                                <div className="min-w-0">
+                                  <div className="font-medium text-gray-900 truncate">
+                                    {getDisplayTitle(transaction)}
+                                  </div>
+                                  {transaction.observation && (
+                                    <div className="text-sm text-gray-500 truncate">
+                                      {transaction.observation}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="text-sm text-gray-900">
                                 {getCategoryName(transaction.category)}
+                              </div>
+                              {getSubCategoryName(transaction.subCategory) && (
+                                <div className="text-xs text-gray-500">
+                                  {getSubCategoryName(transaction.subCategory)}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-center text-sm text-gray-900">
+                              {formatDate(transaction.date)}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <span className="font-bold text-green-600 whitespace-nowrap">
+                                {formatInvestmentCurrency(transaction.amount)}
                               </span>
-                              <span className="flex-shrink-0">
-                                {formatDate(transaction.date)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-3 ml-4">
-                        <span className="font-bold text-lg text-green-600">
-                          {formatCurrency(transaction.amount)}
-                        </span>
-                        <div className="flex items-center space-x-1">
-                          <button
-                            onClick={() => handleEditTransaction(transaction)}
-                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Editar"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteTransaction(transaction.id)}
-                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Excluir"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center justify-center space-x-1">
+                                <button
+                                  onClick={() => handleEditTransaction(transaction)}
+                                  className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                  title="Editar"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteTransaction(transaction.id)}
+                                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                  title="Excluir"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               ))}
             </>

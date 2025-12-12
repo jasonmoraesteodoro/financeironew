@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Calendar, TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
-import { formatCurrency, getAvailableYears } from '../../utils/formatters';
+import { formatCurrency, formatInvestmentCurrency, getAvailableYears } from '../../utils/formatters';
 import MonthlyChart from '../Dashboard/MonthlyChart';
 import InvestmentStatement from './InvestmentStatement';
 
@@ -163,8 +163,8 @@ const Reports: React.FC = () => {
                     return (
                       <td key={i} className="py-3 px-2 text-center text-sm">
                         {monthReport.totalIncome > 0 ? (
-                          <span className="text-green-600 font-medium">
-                            {formatCurrency(monthReport.totalIncome)}
+                          <span className="text-green-600 font-medium whitespace-nowrap">
+                            {formatInvestmentCurrency(monthReport.totalIncome)}
                           </span>
                         ) : (
                           <span className="text-gray-400">-</span>
@@ -172,8 +172,8 @@ const Reports: React.FC = () => {
                       </td>
                     );
                   })}
-                  <td className="py-3 px-4 text-right font-bold text-green-600">
-                    {formatCurrency(Array.from({ length: 12 }, (_, i) => getReport(selectedYear, i + 1).totalIncome).reduce((sum, val) => sum + val, 0))}
+                  <td className="py-3 px-4 text-right font-bold text-green-600 whitespace-nowrap">
+                    {formatInvestmentCurrency(Array.from({ length: 12 }, (_, i) => getReport(selectedYear, i + 1).totalIncome).reduce((sum, val) => sum + val, 0))}
                   </td>
                 </tr>
 
@@ -185,8 +185,8 @@ const Reports: React.FC = () => {
                     return (
                       <td key={i} className="py-3 px-2 text-center text-sm">
                         {monthReport.totalExpenses > 0 ? (
-                          <span className="text-red-600 font-medium">
-                            {formatCurrency(monthReport.totalExpenses)}
+                          <span className="text-red-600 font-medium whitespace-nowrap">
+                            {formatInvestmentCurrency(monthReport.totalExpenses)}
                           </span>
                         ) : (
                           <span className="text-gray-400">-</span>
@@ -194,8 +194,8 @@ const Reports: React.FC = () => {
                       </td>
                     );
                   })}
-                  <td className="py-3 px-4 text-right font-bold text-red-600">
-                    {formatCurrency(Array.from({ length: 12 }, (_, i) => getReport(selectedYear, i + 1).totalExpenses).reduce((sum, val) => sum + val, 0))}
+                  <td className="py-3 px-4 text-right font-bold text-red-600 whitespace-nowrap">
+                    {formatInvestmentCurrency(Array.from({ length: 12 }, (_, i) => getReport(selectedYear, i + 1).totalExpenses).reduce((sum, val) => sum + val, 0))}
                   </td>
                 </tr>
 
@@ -207,8 +207,8 @@ const Reports: React.FC = () => {
                     return (
                       <td key={i} className="py-3 px-2 text-center text-sm">
                         {monthReport.totalInvestments > 0 ? (
-                          <span className="text-blue-600 font-medium">
-                            {formatCurrency(monthReport.totalInvestments)}
+                          <span className="text-blue-600 font-medium whitespace-nowrap">
+                            {formatInvestmentCurrency(monthReport.totalInvestments)}
                           </span>
                         ) : (
                           <span className="text-gray-400">-</span>
@@ -216,8 +216,8 @@ const Reports: React.FC = () => {
                       </td>
                     );
                   })}
-                  <td className="py-3 px-4 text-right font-bold text-blue-600">
-                    {formatCurrency(Array.from({ length: 12 }, (_, i) => getReport(selectedYear, i + 1).totalInvestments).reduce((sum, val) => sum + val, 0))}
+                  <td className="py-3 px-4 text-right font-bold text-blue-600 whitespace-nowrap">
+                    {formatInvestmentCurrency(Array.from({ length: 12 }, (_, i) => getReport(selectedYear, i + 1).totalInvestments).reduce((sum, val) => sum + val, 0))}
                   </td>
                 </tr>
 
@@ -230,10 +230,10 @@ const Reports: React.FC = () => {
                     return (
                       <td key={i} className="py-3 px-2 text-center text-sm">
                         {monthBalance !== 0 ? (
-                          <span className={`font-bold ${
+                          <span className={`font-bold whitespace-nowrap ${
                             monthBalance >= 0 ? 'text-green-600' : 'text-red-600'
                           }`}>
-                            {formatCurrency(monthBalance)}
+                            {formatInvestmentCurrency(monthBalance)}
                           </span>
                         ) : (
                           <span className="text-gray-400">-</span>
@@ -241,7 +241,7 @@ const Reports: React.FC = () => {
                       </td>
                     );
                   })}
-                  <td className={`py-3 px-4 text-right font-bold text-lg ${
+                  <td className={`py-3 px-4 text-right font-bold text-lg whitespace-nowrap ${
                     (() => {
                       const totalBalance = Array.from({ length: 12 }, (_, i) => {
                         const monthReport = getReport(selectedYear, i + 1);
@@ -250,9 +250,45 @@ const Reports: React.FC = () => {
                       return totalBalance >= 0 ? 'text-green-600' : 'text-red-600';
                     })()
                   }`}>
-                    {formatCurrency(Array.from({ length: 12 }, (_, i) => {
+                    {formatInvestmentCurrency(Array.from({ length: 12 }, (_, i) => {
                       const monthReport = getReport(selectedYear, i + 1);
                       return monthReport.totalIncome - monthReport.totalExpenses;
+                    }).reduce((sum, val) => sum + val, 0))}
+                  </td>
+                </tr>
+
+                {/* Saldo Final Row */}
+                <tr className="border-t border-gray-200 bg-blue-50 font-bold">
+                  <td className="py-3 px-4 text-blue-700">Saldo Final</td>
+                  {Array.from({ length: 12 }, (_, i) => {
+                    const monthReport = getReport(selectedYear, i + 1);
+                    const finalBalance = monthReport.totalIncome - monthReport.totalExpenses - monthReport.totalInvestments;
+                    return (
+                      <td key={i} className="py-3 px-2 text-center text-sm">
+                        {finalBalance !== 0 ? (
+                          <span className={`font-bold whitespace-nowrap ${
+                            finalBalance >= 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {formatInvestmentCurrency(finalBalance)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                  <td className={`py-3 px-4 text-right font-bold text-xl whitespace-nowrap ${
+                    (() => {
+                      const totalFinalBalance = Array.from({ length: 12 }, (_, i) => {
+                        const monthReport = getReport(selectedYear, i + 1);
+                        return monthReport.totalIncome - monthReport.totalExpenses - monthReport.totalInvestments;
+                      }).reduce((sum, val) => sum + val, 0);
+                      return totalFinalBalance >= 0 ? 'text-green-600' : 'text-red-600';
+                    })()
+                  }`}>
+                    {formatInvestmentCurrency(Array.from({ length: 12 }, (_, i) => {
+                      const monthReport = getReport(selectedYear, i + 1);
+                      return monthReport.totalIncome - monthReport.totalExpenses - monthReport.totalInvestments;
                     }).reduce((sum, val) => sum + val, 0))}
                   </td>
                 </tr>
