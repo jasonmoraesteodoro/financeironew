@@ -22,6 +22,7 @@ export interface Transaction {
   paid?: boolean; // Only for expenses
   observation?: string;
   bankAccount?: string; // For investments - references BankAccount.id
+  attachmentUrl?: string; // Optional receipt/proof file URL
 }
 
 export interface SubCategory {

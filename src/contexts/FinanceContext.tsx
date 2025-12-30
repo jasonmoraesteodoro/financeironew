@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { Transaction, Category, SubCategory, MonthlyReport, BankAccount } from '../types';
+import { uploadReceipt, deleteReceipt } from '../utils/storage';
 
 interface FinanceContextType {
   transactions: Transaction[];
@@ -9,8 +10,8 @@ interface FinanceContextType {
   subcategories: SubCategory[];
   bankAccounts: BankAccount[];
   loading: boolean;
-  addTransaction: (transaction: Omit<Transaction, 'id'>) => Promise<void>;
-  updateTransaction: (id: string, transaction: Partial<Transaction>) => Promise<void>;
+  addTransaction: (transaction: Omit<Transaction, 'id'>, file?: File | null) => Promise<void>;
+  updateTransaction: (id: string, transaction: Partial<Transaction>, file?: File | null, removeExisting?: boolean) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   addCategory: (category: Omit<Category, 'id'>) => Promise<void>;
   updateCategory: (id: string, category: Partial<Category>) => Promise<void>;
@@ -76,7 +77,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
           .order('name'),
         supabase
           .from('transactions')
-          .select('id, type, amount, category_id, subcategory_id, bank_account_id, date, paid, observation, user_id')
+          .select('id, type, amount, category_id, subcategory_id, bank_account_id, date, paid, observation, attachment_url, user_id')
           .eq('user_id', user.id)
           .order('date', { ascending: false }),
         supabase
@@ -117,6 +118,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         date: trans.date,
         paid: trans.paid,
         observation: trans.observation,
+        attachmentUrl: trans.attachment_url || undefined,
       }));
 
       const transformedBankAccounts = bankAccountsResult.data.map(account => ({
@@ -141,8 +143,19 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  const addTransaction = async (transaction: Omit<Transaction, 'id'>) => {
+  const addTransaction = async (transaction: Omit<Transaction, 'id'>, file?: File | null) => {
     if (!user) return;
+
+    let attachmentUrl: string | null = null;
+
+    if (file) {
+      try {
+        attachmentUrl = await uploadReceipt(file, user.id);
+      } catch (error) {
+        console.error('Error uploading file:', error);
+        throw new Error('Falha ao fazer upload do comprovante. Por favor, tente novamente.');
+      }
+    }
 
     const { data, error } = await supabase
       .from('transactions')
@@ -155,12 +168,18 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         date: transaction.date,
         paid: transaction.paid || false,
         observation: transaction.observation || null,
+        attachment_url: attachmentUrl,
         user_id: user.id,
       })
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (attachmentUrl) {
+        await deleteReceipt(attachmentUrl);
+      }
+      throw error;
+    }
 
     const newTransaction: Transaction = {
       id: data.id,
@@ -172,13 +191,34 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       date: data.date,
       paid: data.paid,
       observation: data.observation,
+      attachmentUrl: data.attachment_url || undefined,
     };
 
     setTransactions(prev => [newTransaction, ...prev]);
   };
 
-  const updateTransaction = async (id: string, transaction: Partial<Transaction>) => {
+  const updateTransaction = async (id: string, transaction: Partial<Transaction>, file?: File | null, removeExisting?: boolean) => {
     if (!user) return;
+
+    const currentTransaction = transactions.find(t => t.id === id);
+    const oldAttachmentUrl = currentTransaction?.attachmentUrl;
+
+    let newAttachmentUrl: string | null | undefined = undefined;
+
+    if (file) {
+      try {
+        newAttachmentUrl = await uploadReceipt(file, user.id);
+        if (oldAttachmentUrl) {
+          await deleteReceipt(oldAttachmentUrl);
+        }
+      } catch (error) {
+        console.error('Error uploading file:', error);
+        throw new Error('Falha ao fazer upload do comprovante. Por favor, tente novamente.');
+      }
+    } else if (removeExisting && oldAttachmentUrl) {
+      await deleteReceipt(oldAttachmentUrl);
+      newAttachmentUrl = null;
+    }
 
     const updateData: any = {};
     if (transaction.type) updateData.type = transaction.type;
@@ -189,6 +229,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (transaction.date) updateData.date = transaction.date;
     if (transaction.paid !== undefined) updateData.paid = transaction.paid;
     if (transaction.observation !== undefined) updateData.observation = transaction.observation || null;
+    if (newAttachmentUrl !== undefined) updateData.attachment_url = newAttachmentUrl;
 
     const { error } = await supabase
       .from('transactions')
@@ -196,15 +237,27 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       .eq('id', id)
       .eq('user_id', user.id);
 
-    if (error) throw error;
+    if (error) {
+      if (newAttachmentUrl && file) {
+        await deleteReceipt(newAttachmentUrl);
+      }
+      throw error;
+    }
+
+    const updatedTransaction = {
+      ...transaction,
+      ...(newAttachmentUrl !== undefined && { attachmentUrl: newAttachmentUrl || undefined })
+    };
 
     setTransactions(prev =>
-      prev.map(t => t.id === id ? { ...t, ...transaction } : t)
+      prev.map(t => t.id === id ? { ...t, ...updatedTransaction } : t)
     );
   };
 
   const deleteTransaction = async (id: string) => {
     if (!user) return;
+
+    const transaction = transactions.find(t => t.id === id);
 
     const { error } = await supabase
       .from('transactions')
@@ -213,6 +266,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       .eq('user_id', user.id);
 
     if (error) throw error;
+
+    if (transaction?.attachmentUrl) {
+      await deleteReceipt(transaction.attachmentUrl);
+    }
 
     setTransactions(prev => prev.filter(t => t.id !== id));
   };

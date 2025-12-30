@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TrendingUp, Edit2, Trash2, ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { TrendingUp, Edit2, Trash2, ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Copy } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
 import { Transaction } from '../../types';
 import { formatInvestmentCurrency, generateMonths, getAvailableYears, groupTransactionsByMonth, formatDate } from '../../utils/formatters';
@@ -238,6 +238,20 @@ const IncomeAnalytics: React.FC = () => {
     setShowTransactionForm(true);
   };
 
+  const handleDuplicateTransaction = (transaction: Transaction) => {
+    const today = new Date();
+    const formattedDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+    const duplicatedTransaction = {
+      ...transaction,
+      id: '',
+      date: formattedDate
+    };
+
+    setEditingTransaction(duplicatedTransaction as Transaction);
+    setShowTransactionForm(true);
+  };
+
   const handleDeleteTransaction = (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir esta transação?')) {
       deleteTransaction(id);
@@ -326,43 +340,6 @@ const IncomeAnalytics: React.FC = () => {
             </select>
           </div>
         </div>
-      </div>
-
-      {/* KPIs por Categoria */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-        {/* Total Geral */}
-        <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-4 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-green-100 text-xs font-medium">Total Geral</p>
-              <p className="text-lg font-bold whitespace-nowrap">{formatInvestmentCurrency(totalIncome)}</p>
-            </div>
-            <TrendingUp className="w-6 h-6 text-green-200" />
-          </div>
-        </div>
-
-        {/* Todas as Categorias */}
-        {categoryKPIs
-          .map((kpi) => (
-            <div key={kpi.id} className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <p className="text-gray-600 text-xs font-medium truncate">{kpi.name}</p>
-                  <p className="text-sm font-bold text-gray-900 whitespace-nowrap">{formatInvestmentCurrency(kpi.total)}</p>
-                </div>
-                <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></div>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${kpi.percentage}%` }}
-                />
-              </div>
-              <p className="text-xs text-green-600 mt-1 font-medium">
-                {kpi.percentage.toFixed(1)}% do total
-              </p>
-            </div>
-          ))}
       </div>
 
       {/* Resumo por Categoria e Mês */}
@@ -641,6 +618,13 @@ const IncomeAnalytics: React.FC = () => {
                             </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center justify-center space-x-1">
+                                <button
+                                  onClick={() => handleDuplicateTransaction(transaction)}
+                                  className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                  title="Duplicar"
+                                >
+                                  <Copy className="w-4 h-4" />
+                                </button>
                                 <button
                                   onClick={() => handleEditTransaction(transaction)}
                                   className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"

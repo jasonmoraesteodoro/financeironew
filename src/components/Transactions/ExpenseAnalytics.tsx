@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { TrendingDown, CreditCard as Edit2, Trash2, ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Check, X } from 'lucide-react';
+import { TrendingDown, CreditCard as Edit2, Trash2, ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Check, X, Copy, Paperclip, Eye, Download, X as CloseIcon } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
 import { Transaction } from '../../types';
 import { formatCurrency, generateMonths, getAvailableYears, groupTransactionsByMonth, formatDate } from '../../utils/formatters';
 import TransactionForm from './TransactionForm';
+import { isImageFile, isPdfFile } from '../../utils/storage';
 
 const ExpenseAnalytics: React.FC = () => {
   const { transactions, categories, subcategories, deleteTransaction, updateTransaction } = useFinance();
@@ -18,6 +19,7 @@ const ExpenseAnalytics: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [detailedSortBy, setDetailedSortBy] = useState<'description' | 'category' | 'date' | 'amount' | 'paid'>('date');
   const [detailedSortOrder, setDetailedSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [viewingAttachment, setViewingAttachment] = useState<string | null>(null);
 
   // Filter expense transactions
   const expenseTransactions = transactions.filter(t => t.type === 'expense');
@@ -225,6 +227,22 @@ const ExpenseAnalytics: React.FC = () => {
 
   const handleEditTransaction = (transaction: Transaction) => {
     setEditingTransaction(transaction);
+    setShowTransactionForm(true);
+  };
+
+  const handleDuplicateTransaction = (transaction: Transaction) => {
+    const today = new Date();
+    const formattedDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+    const duplicatedTransaction = {
+      ...transaction,
+      id: '',
+      date: formattedDate,
+      paid: false,
+      attachmentUrl: undefined
+    };
+
+    setEditingTransaction(duplicatedTransaction as Transaction);
     setShowTransactionForm(true);
   };
 
@@ -647,6 +665,15 @@ const ExpenseAnalytics: React.FC = () => {
                             </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center justify-center space-x-1">
+                                {transaction.attachmentUrl && (
+                                  <button
+                                    onClick={() => setViewingAttachment(transaction.attachmentUrl!)}
+                                    className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                                    title="Ver Comprovante"
+                                  >
+                                    <Paperclip className="w-4 h-4" />
+                                  </button>
+                                )}
                                 {!transaction.paid && (
                                   <button
                                     onClick={() => handleMarkAsPaid(transaction.id)}
@@ -665,6 +692,13 @@ const ExpenseAnalytics: React.FC = () => {
                                     <X className="w-4 h-4" />
                                   </button>
                                 )}
+                                <button
+                                  onClick={() => handleDuplicateTransaction(transaction)}
+                                  className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                  title="Duplicar"
+                                >
+                                  <Copy className="w-4 h-4" />
+                                </button>
                                 <button
                                   onClick={() => handleEditTransaction(transaction)}
                                   className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -692,6 +726,70 @@ const ExpenseAnalytics: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Attachment Viewer Modal */}
+      {viewingAttachment && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Comprovante</h3>
+              <div className="flex items-center space-x-2">
+                <a
+                  href={viewingAttachment}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Abrir em nova aba"
+                >
+                  <Eye className="w-5 h-5" />
+                </a>
+                <a
+                  href={viewingAttachment}
+                  download
+                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Baixar arquivo"
+                >
+                  <Download className="w-5 h-5" />
+                </a>
+                <button
+                  onClick={() => setViewingAttachment(null)}
+                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Fechar"
+                >
+                  <CloseIcon className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto p-4 bg-gray-50">
+              {isImageFile(viewingAttachment) ? (
+                <img
+                  src={viewingAttachment}
+                  alt="Comprovante"
+                  className="w-full h-auto rounded-lg shadow-lg"
+                />
+              ) : isPdfFile(viewingAttachment) ? (
+                <iframe
+                  src={viewingAttachment}
+                  className="w-full h-full min-h-[600px] rounded-lg shadow-lg"
+                  title="PDF Viewer"
+                />
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-600">Formato de arquivo não suportado para visualização.</p>
+                  <a
+                    href={viewingAttachment}
+                    download
+                    className="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Baixar Arquivo
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Transaction Form Modal */}
       {showTransactionForm && (

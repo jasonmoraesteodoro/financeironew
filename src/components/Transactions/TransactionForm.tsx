@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
 import { Transaction } from '../../types';
+import { FileUploadField } from './FileUploadField';
 
 interface TransactionFormProps {
   type: 'income' | 'expense';
@@ -23,7 +24,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const { categories, subcategories, addTransaction, updateTransaction } = useFinance();
   
   const [formData, setFormData] = useState({
-    amount: transaction?.amount?.toString() || '',
+    amount: transaction?.amount?.toFixed(2) || '',
     category: transaction?.category || defaultCategory || '',
     subCategory: transaction?.subCategory || '',
     date: transaction?.date || defaultDate || new Date().toISOString().split('T')[0],
@@ -32,6 +33,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [removeExistingFile, setRemoveExistingFile] = useState(false);
 
   const filteredCategories = categories.filter(cat => cat.type === type);
   
@@ -55,15 +58,16 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     };
 
     try {
-      if (transaction) {
-        await updateTransaction(transaction.id, transactionData);
+      if (transaction && transaction.id) {
+        await updateTransaction(transaction.id, transactionData, selectedFile, removeExistingFile);
       } else {
-        await addTransaction(transactionData);
+        await addTransaction(transactionData, selectedFile);
       }
       onSave();
       onClose();
     } catch (error) {
       console.error('Error saving transaction:', error);
+      alert('Erro ao salvar transação. Por favor, tente novamente.');
     } finally {
       setIsLoading(false);
     }
@@ -72,14 +76,25 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => {
       const newData = { ...prev, [field]: value };
-      
+
       // Reset subcategory when category changes
       if (field === 'category') {
         newData.subCategory = '';
       }
-      
+
       return newData;
     });
+  };
+
+  const handleFileSelect = (file: File | null) => {
+    setSelectedFile(file);
+    if (file) {
+      setRemoveExistingFile(false);
+    }
+  };
+
+  const handleRemoveExisting = () => {
+    setRemoveExistingFile(true);
   };
 
   return (
@@ -182,6 +197,15 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               rows={3}
             />
           </div>
+
+          {type === 'expense' && (
+            <FileUploadField
+              file={selectedFile}
+              existingFileUrl={!removeExistingFile ? transaction?.attachmentUrl : undefined}
+              onFileSelect={handleFileSelect}
+              onRemoveExisting={handleRemoveExisting}
+            />
+          )}
 
           {type === 'expense' && (
             <div className="flex items-center">
