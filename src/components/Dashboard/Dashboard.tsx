@@ -96,7 +96,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <StatsCard
           title="Receita Provisionada"
           value={formatCurrency(monthlyReport.totalIncome)}
@@ -108,6 +108,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           value={formatCurrency(monthlyReport.totalReceivedIncome)}
           icon={TrendingUp}
           color="green"
+        />
+        <StatsCard
+          title="Saldo do Mês"
+          value={formatCurrency(monthlyReport.balance)}
+          icon={Wallet}
+          color={monthlyReport.balance >= 0 ? 'green' : 'red'}
         />
         <StatsCard
           title="Total de Despesas"
@@ -122,10 +128,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           color="red"
         />
         <StatsCard
-          title="Saldo do Mês"
-          value={formatCurrency(monthlyReport.balance)}
-          icon={Wallet}
-          color={monthlyReport.balance >= 0 ? 'green' : 'red'}
+          title="Despesas Pagas"
+          value={formatCurrency(monthlyReport.totalPaidExpenses)}
+          icon={TrendingDown}
+          color="red"
         />
       </div>
 

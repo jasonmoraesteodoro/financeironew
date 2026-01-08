@@ -493,6 +493,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       .reduce((sum, t) => sum + t.amount, 0);
     const totalExpenses = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
     const totalInvestments = investmentTransactions.reduce((sum, t) => sum + t.amount, 0);
+    const totalPaidExpenses = expenseTransactions
+      .filter(t => t.paid)
+      .reduce((sum, t) => sum + t.amount, 0);
     const totalUnpaidExpenses = expenseTransactions
       .filter(t => !t.paid)
       .reduce((sum, t) => sum + t.amount, 0);
@@ -525,6 +528,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       totalIncome,
       totalReceivedIncome,
       totalExpenses,
+      totalPaidExpenses,
       totalInvestments,
       totalUnpaidExpenses,
       balance: totalIncome - totalExpenses,

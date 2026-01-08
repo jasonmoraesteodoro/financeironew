@@ -47,6 +47,7 @@ export interface MonthlyReport {
   totalIncome: number;
   totalReceivedIncome: number;
   totalExpenses: number;
+  totalPaidExpenses: number;
   totalUnpaidExpenses: number;
   totalInvestments: number;
   balance: number;

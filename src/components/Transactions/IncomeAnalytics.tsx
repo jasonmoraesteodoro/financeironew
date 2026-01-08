@@ -4,6 +4,7 @@ import { useFinance } from '../../contexts/FinanceContext';
 import { Transaction } from '../../types';
 import { formatInvestmentCurrency, generateMonths, getAvailableYears, groupTransactionsByMonth, formatDate } from '../../utils/formatters';
 import TransactionForm from './TransactionForm';
+import { isImageFile, isPdfFile } from '../../utils/storage';
 
 const IncomeAnalytics: React.FC = () => {
   const { transactions, categories, subcategories, deleteTransaction, updateTransaction } = useFinance();
@@ -762,19 +763,31 @@ const IncomeAnalytics: React.FC = () => {
                 </button>
               </div>
             </div>
-            <div className="flex-1 overflow-auto p-4">
-              {viewingAttachment.toLowerCase().endsWith('.pdf') ? (
-                <iframe
-                  src={viewingAttachment}
-                  className="w-full h-full min-h-[600px] border-0"
-                  title="Comprovante PDF"
-                />
-              ) : (
+            <div className="flex-1 overflow-auto p-4 bg-gray-50">
+              {isImageFile(viewingAttachment) ? (
                 <img
                   src={viewingAttachment}
                   alt="Comprovante"
-                  className="max-w-full h-auto mx-auto"
+                  className="w-full h-auto rounded-lg shadow-lg"
                 />
+              ) : isPdfFile(viewingAttachment) ? (
+                <iframe
+                  src={viewingAttachment}
+                  className="w-full h-full min-h-[600px] rounded-lg shadow-lg"
+                  title="PDF Viewer"
+                />
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-600">Formato de arquivo não suportado para visualização.</p>
+                  <a
+                    href={viewingAttachment}
+                    download
+                    className="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Baixar Arquivo
+                  </a>
+                </div>
               )}
             </div>
           </div>
