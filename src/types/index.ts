@@ -20,6 +20,7 @@ export interface Transaction {
   subCategory?: string;
   date: string;
   paid?: boolean; // Only for expenses
+  received?: boolean; // Only for income
   observation?: string;
   bankAccount?: string; // For investments - references BankAccount.id
   attachmentUrl?: string; // Optional receipt/proof file URL
@@ -44,6 +45,7 @@ export interface BankAccount {
 export interface MonthlyReport {
   month: string;
   totalIncome: number;
+  totalReceivedIncome: number;
   totalExpenses: number;
   totalUnpaidExpenses: number;
   totalInvestments: number;

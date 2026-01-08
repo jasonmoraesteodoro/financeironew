@@ -7,8 +7,8 @@ import InvestmentStatement from './InvestmentStatement';
 
 const Reports: React.FC = () => {
   const { getReport, categories, transactions, bankAccounts } = useFinance();
-  const [selectedYear, setSelectedYear] = useState<string>('all');
-  const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
+  const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth() + 1));
 
   const report = getReport(selectedYear, selectedMonth);
 
@@ -73,12 +73,22 @@ const Reports: React.FC = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-green-100 text-sm">Total de Receitas</p>
+              <p className="text-green-100 text-sm">Receita Provisionada</p>
               <p className="text-2xl font-bold">{formatCurrency(report.totalIncome)}</p>
+            </div>
+            <TrendingUp className="w-8 h-8 text-green-200" />
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-xl p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-green-100 text-sm">Receitas Recebidas</p>
+              <p className="text-2xl font-bold">{formatCurrency(report.totalReceivedIncome)}</p>
             </div>
             <TrendingUp className="w-8 h-8 text-green-200" />
           </div>
@@ -105,8 +115,8 @@ const Reports: React.FC = () => {
         </div>
 
         <div className={`bg-gradient-to-r ${
-          report.balance >= 0 
-            ? 'from-blue-500 to-blue-600' 
+          report.balance >= 0
+            ? 'from-blue-500 to-blue-600'
             : 'from-orange-500 to-orange-600'
         } rounded-xl p-6 text-white`}>
           <div className="flex items-center justify-between">

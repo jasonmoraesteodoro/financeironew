@@ -29,6 +29,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     subCategory: transaction?.subCategory || '',
     date: transaction?.date || defaultDate || new Date().toISOString().split('T')[0],
     paid: transaction?.paid || false,
+    received: transaction?.received || false,
     observation: transaction?.observation || '',
   });
 
@@ -54,6 +55,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       ...(formData.subCategory && { subCategory: formData.subCategory }),
       date: formData.date,
       ...(type === 'expense' && { paid: formData.paid }),
+      ...(type === 'income' && { received: formData.received }),
       ...(formData.observation && { observation: formData.observation }),
     };
 
@@ -198,14 +200,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             />
           </div>
 
-          {type === 'expense' && (
-            <FileUploadField
-              file={selectedFile}
-              existingFileUrl={!removeExistingFile ? transaction?.attachmentUrl : undefined}
-              onFileSelect={handleFileSelect}
-              onRemoveExisting={handleRemoveExisting}
-            />
-          )}
+          <FileUploadField
+            file={selectedFile}
+            existingFileUrl={!removeExistingFile ? transaction?.attachmentUrl : undefined}
+            onFileSelect={handleFileSelect}
+            onRemoveExisting={handleRemoveExisting}
+          />
 
           {type === 'expense' && (
             <div className="flex items-center">
@@ -218,6 +218,21 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               />
               <label htmlFor="paid" className="ml-2 text-sm text-gray-700">
                 Já foi pago
+              </label>
+            </div>
+          )}
+
+          {type === 'income' && (
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="received"
+                checked={formData.received}
+                onChange={(e) => handleInputChange('received', e.target.checked)}
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <label htmlFor="received" className="ml-2 text-sm text-gray-700">
+                Já foi recebido
               </label>
             </div>
           )}

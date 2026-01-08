@@ -77,7 +77,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
           .order('name'),
         supabase
           .from('transactions')
-          .select('id, type, amount, category_id, subcategory_id, bank_account_id, date, paid, observation, attachment_url, user_id')
+          .select('id, type, amount, category_id, subcategory_id, bank_account_id, date, paid, received, observation, attachment_url, user_id')
           .eq('user_id', user.id)
           .order('date', { ascending: false }),
         supabase
@@ -117,6 +117,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         bankAccount: trans.bank_account_id || undefined,
         date: trans.date,
         paid: trans.paid,
+        received: trans.received,
         observation: trans.observation,
         attachmentUrl: trans.attachment_url || undefined,
       }));
@@ -167,6 +168,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         bank_account_id: transaction.bankAccount || null,
         date: transaction.date,
         paid: transaction.paid || false,
+        received: transaction.received || false,
         observation: transaction.observation || null,
         attachment_url: attachmentUrl,
         user_id: user.id,
@@ -190,6 +192,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       bankAccount: data.bank_account_id || undefined,
       date: data.date,
       paid: data.paid,
+      received: data.received,
       observation: data.observation,
       attachmentUrl: data.attachment_url || undefined,
     };
@@ -228,6 +231,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (transaction.bankAccount !== undefined) updateData.bank_account_id = transaction.bankAccount || null;
     if (transaction.date) updateData.date = transaction.date;
     if (transaction.paid !== undefined) updateData.paid = transaction.paid;
+    if (transaction.received !== undefined) updateData.received = transaction.received;
     if (transaction.observation !== undefined) updateData.observation = transaction.observation || null;
     if (newAttachmentUrl !== undefined) updateData.attachment_url = newAttachmentUrl;
 
@@ -482,8 +486,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const incomeTransactions = filteredTransactions.filter(t => t.type === 'income');
     const expenseTransactions = filteredTransactions.filter(t => t.type === 'expense');
     const investmentTransactions = filteredTransactions.filter(t => t.type === 'investment');
-    
+
     const totalIncome = incomeTransactions.reduce((sum, t) => sum + t.amount, 0);
+    const totalReceivedIncome = incomeTransactions
+      .filter(t => t.received)
+      .reduce((sum, t) => sum + t.amount, 0);
     const totalExpenses = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
     const totalInvestments = investmentTransactions.reduce((sum, t) => sum + t.amount, 0);
     const totalUnpaidExpenses = expenseTransactions
@@ -511,11 +518,12 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
     
     return {
-      month: yearFilter === 'all' && monthFilter === 'all' ? 'all' : 
+      month: yearFilter === 'all' && monthFilter === 'all' ? 'all' :
             yearFilter === 'all' ? `all-${monthFilter}` :
-            monthFilter === 'all' ? `${yearFilter}-all` : 
+            monthFilter === 'all' ? `${yearFilter}-all` :
             `${yearFilter}-${String(monthFilter).padStart(2, '0')}`,
       totalIncome,
+      totalReceivedIncome,
       totalExpenses,
       totalInvestments,
       totalUnpaidExpenses,

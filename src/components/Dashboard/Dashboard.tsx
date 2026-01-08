@@ -15,8 +15,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const { transactions, categories, subcategories, getReport } = useFinance();
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [transactionType, setTransactionType] = useState<'income' | 'expense'>('income');
-  const [selectedYear, setSelectedYear] = useState('all');
-  const [selectedMonth, setSelectedMonth] = useState('all');
+  const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
+  const [selectedMonth, setSelectedMonth] = useState(String(new Date().getMonth() + 1));
 
   // Get filtered report
   const monthlyReport = getReport(selectedYear, selectedMonth);
@@ -96,10 +96,16 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <StatsCard
-          title="Total de Receitas"
+          title="Receita Provisionada"
           value={formatCurrency(monthlyReport.totalIncome)}
+          icon={TrendingUp}
+          color="green"
+        />
+        <StatsCard
+          title="Receitas Recebidas"
+          value={formatCurrency(monthlyReport.totalReceivedIncome)}
           icon={TrendingUp}
           color="green"
         />

@@ -621,7 +621,11 @@ const ExpenseAnalytics: React.FC = () => {
                       <tbody className="divide-y divide-gray-200">
                         {monthGroup.transactions.map((transaction) => (
                           <tr key={transaction.id} className="hover:bg-red-50 transition-colors">
-                            <td className="px-4 py-3">
+                            <td
+                              className="px-4 py-3 cursor-pointer hover:bg-red-100"
+                              onClick={() => handleEditTransaction(transaction)}
+                              title="Clique para editar"
+                            >
                               <div className="flex items-center space-x-3">
                                 <div className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
                                 <div className="min-w-0">

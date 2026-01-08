@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { TrendingUp, Edit2, Trash2, ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Copy } from 'lucide-react';
+import { TrendingUp, Edit2, Trash2, ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Copy, Check, X, Paperclip, Eye, Download } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
 import { Transaction } from '../../types';
 import { formatInvestmentCurrency, generateMonths, getAvailableYears, groupTransactionsByMonth, formatDate } from '../../utils/formatters';
 import TransactionForm from './TransactionForm';
 
 const IncomeAnalytics: React.FC = () => {
-  const { transactions, categories, subcategories, deleteTransaction } = useFinance();
+  const { transactions, categories, subcategories, deleteTransaction, updateTransaction } = useFinance();
   const [selectedFilterYear, setSelectedFilterYear] = useState(new Date().getFullYear().toString());
   const [selectedFilterMonth, setSelectedFilterMonth] = useState('all');
   const [selectedFilterCategory, setSelectedFilterCategory] = useState('');
@@ -17,6 +17,7 @@ const IncomeAnalytics: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [detailedSortBy, setDetailedSortBy] = useState<'description' | 'category' | 'date' | 'amount'>('date');
   const [detailedSortOrder, setDetailedSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [viewingAttachment, setViewingAttachment] = useState<string | null>(null);
 
   // Filter income transactions
   const incomeTransactions = transactions.filter(t => t.type === 'income');
@@ -255,6 +256,28 @@ const IncomeAnalytics: React.FC = () => {
   const handleDeleteTransaction = (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir esta transação?')) {
       deleteTransaction(id);
+    }
+  };
+
+  const handleMarkAsReceived = async (transactionId: string) => {
+    if (window.confirm('Marcar esta receita como recebida?')) {
+      try {
+        await updateTransaction(transactionId, { received: true });
+      } catch (error) {
+        console.error('Erro ao marcar como recebido:', error);
+        alert('Erro ao marcar como recebido. Tente novamente.');
+      }
+    }
+  };
+
+  const handleMarkAsPending = async (transactionId: string) => {
+    if (window.confirm('Desmarcar esta receita como recebida?')) {
+      try {
+        await updateTransaction(transactionId, { received: false });
+      } catch (error) {
+        console.error('Erro ao desmarcar como recebido:', error);
+        alert('Erro ao desmarcar como recebido. Tente novamente.');
+      }
     }
   };
 
@@ -576,6 +599,9 @@ const IncomeAnalytics: React.FC = () => {
                             </button>
                           </th>
                           <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Ações
                           </th>
                         </tr>
@@ -583,7 +609,11 @@ const IncomeAnalytics: React.FC = () => {
                       <tbody className="divide-y divide-gray-200">
                         {monthGroup.transactions.map((transaction) => (
                           <tr key={transaction.id} className="hover:bg-green-50 transition-colors">
-                            <td className="px-4 py-3">
+                            <td
+                              className="px-4 py-3 cursor-pointer hover:bg-green-100"
+                              onClick={() => handleEditTransaction(transaction)}
+                              title="Clique para editar"
+                            >
                               <div className="flex items-center space-x-3">
                                 <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
                                 <div className="min-w-0">
@@ -616,8 +646,44 @@ const IncomeAnalytics: React.FC = () => {
                                 {formatInvestmentCurrency(transaction.amount)}
                               </span>
                             </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                transaction.received
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {transaction.received ? 'Recebido' : 'Pendente'}
+                              </span>
+                            </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center justify-center space-x-1">
+                                {transaction.attachmentUrl && (
+                                  <button
+                                    onClick={() => setViewingAttachment(transaction.attachmentUrl!)}
+                                    className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                                    title="Ver Comprovante"
+                                  >
+                                    <Paperclip className="w-4 h-4" />
+                                  </button>
+                                )}
+                                {!transaction.received && (
+                                  <button
+                                    onClick={() => handleMarkAsReceived(transaction.id)}
+                                    className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                    title="Marcar como Recebido"
+                                  >
+                                    <Check className="w-4 h-4" />
+                                  </button>
+                                )}
+                                {transaction.received && (
+                                  <button
+                                    onClick={() => handleMarkAsPending(transaction.id)}
+                                    className="p-1.5 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
+                                    title="Desmarcar como Recebido"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => handleDuplicateTransaction(transaction)}
                                   className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -662,6 +728,57 @@ const IncomeAnalytics: React.FC = () => {
           onSave={() => {}}
           {...getDefaultFormData()}
         />
+      )}
+
+      {/* Attachment Viewer Modal */}
+      {viewingAttachment && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Comprovante</h3>
+              <div className="flex items-center space-x-2">
+                <a
+                  href={viewingAttachment}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Abrir em nova aba"
+                >
+                  <Eye className="w-5 h-5" />
+                </a>
+                <a
+                  href={viewingAttachment}
+                  download
+                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Baixar"
+                >
+                  <Download className="w-5 h-5" />
+                </a>
+                <button
+                  onClick={() => setViewingAttachment(null)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              {viewingAttachment.toLowerCase().endsWith('.pdf') ? (
+                <iframe
+                  src={viewingAttachment}
+                  className="w-full h-full min-h-[600px] border-0"
+                  title="Comprovante PDF"
+                />
+              ) : (
+                <img
+                  src={viewingAttachment}
+                  alt="Comprovante"
+                  className="max-w-full h-auto mx-auto"
+                />
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
