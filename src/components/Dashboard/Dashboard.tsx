@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { TrendingUp, TrendingDown, Wallet, PieChart } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, PieChart, Activity } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
 import { formatCurrency, getAvailableYears } from '../../utils/formatters';
 import StatsCard from './StatsCard';
 import TransactionsToPay from './TransactionsToPay';
 import MonthlyChart from './MonthlyChart';
+import CashFlowChart from './CashFlowChart';
 import TransactionForm from '../Transactions/TransactionForm';
 
 interface DashboardProps {
@@ -95,7 +96,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - Linha 1 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <StatsCard
           title="Receita Provisionada"
@@ -115,6 +116,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           icon={Wallet}
           color={monthlyReport.balance >= 0 ? 'green' : 'red'}
         />
+      </div>
+
+      {/* Stats Cards - Linha 2 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
           title="Total de Despesas"
           value={formatCurrency(monthlyReport.totalExpenses)}
@@ -133,6 +138,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           icon={TrendingDown}
           color="red"
         />
+        <StatsCard
+          title="Fluxo de Caixa Realizado"
+          value={formatCurrency(monthlyReport.totalReceivedIncome - monthlyReport.totalPaidExpenses)}
+          icon={Activity}
+          color={monthlyReport.totalReceivedIncome - monthlyReport.totalPaidExpenses >= 0 ? 'green' : 'red'}
+        />
       </div>
 
       {/* Charts and Recent Transactions */}
@@ -146,6 +157,16 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         <div className="lg:col-span-1">
           <TransactionsToPay transactions={transactions} categories={categories} subcategories={subcategories} />
         </div>
+      </div>
+
+      {/* Cash Flow Chart */}
+      <div>
+        <CashFlowChart
+          transactions={transactions}
+          categories={categories}
+          selectedYear={selectedYear}
+          selectedMonth={selectedMonth}
+        />
       </div>
 
       {/* Quick Actions */}
