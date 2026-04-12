@@ -155,7 +155,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
 
         {/* Transactions to Pay */}
         <div className="lg:col-span-1">
-          <TransactionsToPay transactions={transactions} categories={categories} subcategories={subcategories} />
+          <TransactionsToPay
+            transactions={transactions}
+            categories={categories}
+            subcategories={subcategories}
+            selectedYear={selectedYear}
+            selectedMonth={selectedMonth}
+          />
         </div>
       </div>
 

@@ -7,9 +7,11 @@ interface TransactionsToPayProps {
   transactions: Transaction[];
   categories: Category[];
   subcategories: SubCategory[];
+  selectedYear: string;
+  selectedMonth: string;
 }
 
-const TransactionsToPay: React.FC<TransactionsToPayProps> = ({ transactions, categories, subcategories }) => {
+const TransactionsToPay: React.FC<TransactionsToPayProps> = ({ transactions, categories, subcategories, selectedYear, selectedMonth }) => {
   const getCategoryName = (categoryId: string) => {
     return categories.find(c => c.id === categoryId)?.name || 'Categoria não encontrada';
   };
@@ -21,7 +23,30 @@ const TransactionsToPay: React.FC<TransactionsToPayProps> = ({ transactions, cat
 
   // Filter unpaid expenses and sort by date (oldest first)
   const unpaidExpenses = transactions
-    .filter(t => t.type === 'expense' && !t.paid)
+    .filter(t => {
+      if (t.type !== 'expense' || t.paid) return false;
+
+      const transactionDate = new Date(t.date);
+      const transactionYear = transactionDate.getFullYear();
+      const transactionMonth = transactionDate.getMonth();
+
+      const isAllYears = selectedYear === 'all';
+      const isAllMonths = selectedMonth === 'all';
+      const selectedYearNum = Number(selectedYear);
+      const monthIndex = Number(selectedMonth) - 1;
+
+      // Check year filter
+      if (!isAllYears && transactionYear !== selectedYearNum) {
+        return false;
+      }
+
+      // Check month filter
+      if (!isAllMonths && transactionMonth !== monthIndex) {
+        return false;
+      }
+
+      return true;
+    })
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 5); // Show only first 5
 
@@ -103,13 +128,40 @@ const TransactionsToPay: React.FC<TransactionsToPayProps> = ({ transactions, cat
         })}
       </div>
       
-      {transactions.filter(t => t.type === 'expense' && !t.paid).length > 5 && (
-        <div className="mt-4 pt-4 border-t border-gray-200">
-          <p className="text-sm text-gray-500 text-center">
-            E mais {transactions.filter(t => t.type === 'expense' && !t.paid).length - 5} transação(ões) pendente(s)
-          </p>
-        </div>
-      )}
+      {(() => {
+        const isAllYears = selectedYear === 'all';
+        const isAllMonths = selectedMonth === 'all';
+        const selectedYearNum = Number(selectedYear);
+        const monthIndex = Number(selectedMonth) - 1;
+
+        const allFilteredUnpaid = transactions.filter(t => {
+          if (t.type !== 'expense' || t.paid) return false;
+
+          const transactionDate = new Date(t.date);
+          const transactionYear = transactionDate.getFullYear();
+          const transactionMonth = transactionDate.getMonth();
+
+          // Check year filter
+          if (!isAllYears && transactionYear !== selectedYearNum) {
+            return false;
+          }
+
+          // Check month filter
+          if (!isAllMonths && transactionMonth !== monthIndex) {
+            return false;
+          }
+
+          return true;
+        });
+
+        return allFilteredUnpaid.length > 5 && (
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <p className="text-sm text-gray-500 text-center">
+              E mais {allFilteredUnpaid.length - 5} transação(ões) pendente(s)
+            </p>
+          </div>
+        );
+      })()}
     </div>
   );
 };
